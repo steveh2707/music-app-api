@@ -7,6 +7,7 @@ app.use(bodyParser.json());
 
 app.use(require('./routes/teacher'))
 app.use(require('./routes/user'))
+app.use(require('./routes/search'))
 
 app.listen((process.env.port || 4000), () => {
   console.log("API listening on port: 4000")
