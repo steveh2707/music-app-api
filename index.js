@@ -5,6 +5,7 @@ var bodyParser = require('body-parser');
 app.use(express.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
+app.use(require('./routes/configuration'))
 app.use(require('./routes/teacher'))
 app.use(require('./routes/user'))
 app.use(require('./routes/search'))

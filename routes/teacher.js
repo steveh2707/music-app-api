@@ -5,17 +5,16 @@ const connection = require('../db')
 
 router.get('/teacher/:teacherId', async (req, res) => {
 
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  // await new Promise(resolve => setTimeout(resolve, 2000));
 
   console.log("called")
 
   let teacherId = req.params.teacherId
 
   let getTeacherSql = `
-  SELECT user.user_id, @teacher := teacher_id AS teacher_id, first_name, last_name, tagline, bio, location_latitude, location_longitude, average_review_score, image_url
+  SELECT user.user_id, @teacher := teacher_id AS teacher_id, first_name, last_name, tagline, bio, location_latitude, location_longitude, average_review_score, profile_image_url
     FROM user 
     LEFT JOIN teacher on user.user_id=teacher.user_id
-    LEFT JOIN image on teacher.image_id=image.image_id
     WHERE user.user_id=?;
   SELECT teacher_instrument_highest_grade_teachable.teacher_instrument_highest_grade_teachable_id AS id, instrument.instrument_id, instrument.name AS instrument_name, sf_symbol, grade.grade_id, grade.name AS grade_name
     FROM teacher_instrument_highest_grade_teachable
