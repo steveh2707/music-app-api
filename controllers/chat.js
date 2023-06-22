@@ -1,13 +1,15 @@
 const connection = require('../db')
+const errorResponse = require('../apiError')
 
 const getChatById = async (req, res) => {
-
   // await new Promise(resolve => setTimeout(resolve, 2000));
 
-  let userID = req.query.user_id
-  let teacherID = req.query.teacher_id
+  let userID = req.information.user_id
+  // let teacherID = req.query.teacher_id
+  let teacherID = req.params.teacher_id
 
   console.log(req.query)
+  console.log(req.information)
 
   let sql = `
   SELECT @chat := chat_id AS chat_id, created_timestamp, teacher.teacher_id, teacher.user_id AS teacher_user_id, first_name AS teacher_first_name, last_name AS teacher_last_name, last_login_timestamp, profile_image_url 
@@ -22,7 +24,11 @@ const getChatById = async (req, res) => {
   `
 
   connection.query(sql, [userID, teacherID], (err, response) => {
-    if (err) return res.json({ error: "not working" })
+    if (err) return res.status(400).send(errorResponse(err, res.statusCode))
+
+    console.log(response)
+
+    if (response[0].length === 0) return res.status(404).send(errorResponse("Chat does not exist", res.statusCode))
 
     let chatDetails = response[0][0]
     let chatMessages = response[1]
@@ -32,9 +38,36 @@ const getChatById = async (req, res) => {
       chatDetails.messages.push(chat)
     })
 
-    res.status(200).json(chatDetails)
+    res.status(200).send(chatDetails)
   })
-
 }
 
-module.exports = { getChatById }
+const newChat = async (req, res) => {
+  // await new Promise(resolve => setTimeout(resolve, 2000));
+
+  let userID = req.information.user_id
+  let teacherID = req.params.teacher_id
+
+  let sql = `
+  `
+  connection.query(sql, [userID, teacherID], (err, response) => {
+
+    res.status(200)
+  })
+}
+
+const newMessage = async (req, res) => {
+  // await new Promise(resolve => setTimeout(resolve, 2000));
+
+  let userID = req.information.user_id
+  let teacherID = req.params.teacher_id
+
+  let sql = `
+  `
+  connection.query(sql, [userID, teacherID], (err, response) => {
+
+    res.status(200)
+  })
+}
+
+module.exports = { getChatById, newChat, newMessage }

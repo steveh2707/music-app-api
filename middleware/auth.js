@@ -1,75 +1,22 @@
 const jwt = require('jsonwebtoken')
+const errorResponse = require('../apiError')
 
 const SECRET_KEY = process.env.JWT_SECRET_KEY
 
 const decode = (req, res, next) => {
-  if (!req.headers['authorization']) {
-    return res.status(401).json({
-      success: false,
-      message: 'No token provided'
-    })
-  }
+
+  if (!req.headers['authorization']) return res.status(401).send(errorResponse("No token provided", res.statusCode))
 
   try {
-    const token = req.headers.authorization.split(' ')[1] // Bearer <auth-token>
+    const token = req.headers.authorization
     const decoded = jwt.decode(token, SECRET_KEY)
     req.information = decoded
     return next()
+
   } catch (error) {
     console.log(error)
-    return res.status(401).json({
-      success: false,
-      message: 'Invalid auth token'
-    })
+    return res.status(401).send(errorResponse("Invalid auth token", res.statusCode))
   }
 }
-
-// const encode = (req, res, next) => {
-//   const payload = {
-//     username: req.body.username,
-//     password: req.body.password
-//   }
-//   // perform some db operations to check if the user information is
-//   // correct or not.
-//   const token = jwt.sign(payload, SECRET_KEY)
-//   req.token = token
-//   next()
-// }
-
-
-// const auth = {
-//   decode: (req, res, next) => {
-//     if (!req.headers['authorization']) {
-//       return res.status(401).json({
-//         success: false,
-//         message: 'No token provided'
-//       })
-//     }
-
-//     try {
-//       const token = req.headers.authorization.split(' ')[1] // Bearer <auth-token>
-//       const decoded = jwt.decode(token, SECRET_KEY)
-//       req.information = decoded
-//       return next()
-//     } catch (error) {
-//       console.log(error)
-//       return res.status(401).json({
-//         success: false,
-//         message: 'Invalid auth token'
-//       })
-//     }
-//   },
-//   encode: (req, res, next) => {
-//     const payload = {
-//       username: req.body.username,
-//       password: req.body.password
-//     }
-//     // perform some db operations to check if the user information is
-//     // correct or not.
-//     const token = jwt.sign(payload, SECRET_KEY)
-//     req.token = token
-//     next()
-//   }
-// }
 
 module.exports = { decode }

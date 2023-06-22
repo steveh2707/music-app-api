@@ -1,11 +1,12 @@
 const connection = require('../db')
+const errorResponse = require('../apiError')
 
 const getTeacherById = async (req, res) => {
   // await new Promise(resolve => setTimeout(resolve, 2000));
 
-  console.log("called")
+  // console.log("called")
 
-  let teacherId = req.params.teacherId
+  let teacherId = req.params.teacher_id
 
   let getTeacherSql = `
   SELECT user.user_id, @teacher := teacher_id AS teacher_id, first_name, last_name, tagline, bio, location_latitude, location_longitude, average_review_score, profile_image_url
@@ -26,7 +27,7 @@ const getTeacherById = async (req, res) => {
   `
 
   connection.query(getTeacherSql, [teacherId], (err, response) => {
-    if (err) return res.json({ error: "not working" })
+    if (err) return res.status(400).send(errorResponse(err, res.statusCode))
 
     let teacherDetails = response[0][0]
     let instrumentsTaught = response[1]
@@ -52,7 +53,7 @@ const getTeacherById = async (req, res) => {
     // }
 
 
-    res.status(200).json(teacherDetails)
+    res.status(200).send(teacherDetails)
   })
 }
 
@@ -60,7 +61,7 @@ const getTeacherById = async (req, res) => {
 const getTeachersSearch = async (req, res) => {
   // await new Promise(resolve => setTimeout(resolve, 5000));
 
-  console.log(req.body)
+  // console.log(req.body)
 
   let userLatitude = req.body.user_latitude
   let userLongitude = req.body.user_longitude
@@ -110,20 +111,20 @@ const getTeachersSearch = async (req, res) => {
     sqlParams.push(gradeRankId)
   }
 
-  console.log(sqlQuery)
-  console.log(sqlParams)
+  // console.log(sqlQuery)
+  // console.log(sqlParams)
 
   connection.query(sqlQuery, sqlParams, (err, response) => {
-    if (err) return res.json({ error: err })
+    if (err) return res.status(400).send(errorResponse(err, res.statusCode))
 
     let json = {
       num_results: response.length,
       results: response
     }
 
-    console.log(json)
+    // console.log(json)
 
-    res.status(200).json(json)
+    res.status(200).send(json)
   })
 }
 
