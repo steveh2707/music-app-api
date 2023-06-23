@@ -5,7 +5,7 @@ const SECRET_KEY = process.env.JWT_SECRET_KEY
 
 const decode = (req, res, next) => {
 
-  if (!req.headers['authorization']) return res.status(401).send(errorResponse("No token provided", res.statusCode))
+  if (!req.headers['authorization']) return res.status(401).send(errorResponse("User not logged in", res.statusCode))
 
   try {
     const token = req.headers.authorization

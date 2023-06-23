@@ -2,7 +2,7 @@ const connection = require('../db')
 const errorResponse = require('../apiError')
 
 const getTeacherById = async (req, res) => {
-  // await new Promise(resolve => setTimeout(resolve, 2000));
+  await new Promise(resolve => setTimeout(resolve, 1000));
 
   // console.log("called")
 
@@ -59,7 +59,7 @@ const getTeacherById = async (req, res) => {
 
 
 const getTeachersSearch = async (req, res) => {
-  // await new Promise(resolve => setTimeout(resolve, 5000));
+  await new Promise(resolve => setTimeout(resolve, 1000));
 
   // console.log(req.body)
 
