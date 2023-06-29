@@ -6,9 +6,9 @@ const getTeacherById = async (req, res) => {
 
   // console.log("called")
 
-  let teacherId = req.params.teacher_id
+  const teacherId = req.params.teacher_id
 
-  let getTeacherSql = `
+  const getTeacherSql = `
   SELECT user.user_id, @teacher := teacher_id AS teacher_id, first_name, last_name, tagline, bio, location_latitude, location_longitude, average_review_score, profile_image_url
     FROM user 
     LEFT JOIN teacher on user.user_id=teacher.user_id
@@ -30,8 +30,8 @@ const getTeacherById = async (req, res) => {
     if (err) return res.status(400).send(errorResponse(err, res.statusCode))
 
     let teacherDetails = response[0][0]
-    let instrumentsTaught = response[1]
-    let reviews = response[2]
+    const instrumentsTaught = response[1]
+    const reviews = response[2]
 
     teacherDetails.instruments_taught = []
     instrumentsTaught.forEach(instrument => {
@@ -61,28 +61,35 @@ const getTeacherById = async (req, res) => {
 const getTeachersSearch = async (req, res) => {
   await new Promise(resolve => setTimeout(resolve, 1000));
 
-  // console.log(req.body)
+  const frontEndPageNum = parseInt(req.query.page) || 1
+  const mySQLPageNum = frontEndPageNum - 1;
+  const resultsPerPage = 6;
+  const pagestart = mySQLPageNum * resultsPerPage;
 
-  let userLatitude = req.body.user_latitude
-  let userLongitude = req.body.user_longitude
-  let instrumentId = req.body.instrument_id
-  let gradeRankId = req.body.grade_rank_id
+  const userLatitude = req.body.user_latitude
+  const userLongitude = req.body.user_longitude
+  const instrumentId = req.body.instrument_id
+  const gradeRankId = req.body.grade_rank_id
 
-  let searchTeachersBaseStartSql = `
-  SELECT teacher.teacher_id, first_name, last_name, tagline, bio, location_latitude, location_longitude, average_review_score, profile_image_url, instrument.instrument_id, instrument.name AS instrument_name, sf_symbol AS instrument_sf_symbol, grade.name AS grade_teachable, rank
-  `
+  // base sql query
+  let searchTeachersSql = `
+  SELECT teacher.teacher_id, first_name, last_name, tagline, bio, location_latitude, location_longitude, average_review_score, profile_image_url, teacher_instrument_highest_grade_teachable_id AS id, instrument.instrument_id, instrument.name AS instrument_name, sf_symbol AS instrument_sf_symbol, grade.name AS grade_teachable, rank`
+  let sqlParams = []
 
-  let searchTeachersMiddleSql = `
-  ,
-	  111.111 *
-      DEGREES(ACOS(LEAST(1.0, COS(RADIANS(location_latitude))
-        * COS(RADIANS(?))
-        * COS(RADIANS(location_longitude - ?))
-        + SIN(RADIANS(location_latitude))
-        * SIN(RADIANS(?))))) AS distance_in_km
-  `
+  // check whether user has provided latitude and longitude
+  if (userLatitude && userLongitude) {
+    searchTeachersSql += `
+    , 111.111 *
+        DEGREES(ACOS(LEAST(1.0, COS(RADIANS(location_latitude))
+          * COS(RADIANS(?))
+          * COS(RADIANS(location_longitude - ?))
+          + SIN(RADIANS(location_latitude))
+          * SIN(RADIANS(?))))) AS distance_in_km`
+    sqlParams.push(userLatitude, userLongitude, userLatitude)
+  }
 
-  let searchTeachersBaseEndSql = `
+  // add middle section of sql query
+  searchTeachersSql += `
   FROM teacher
     LEFT JOIN user on teacher.user_id=user.user_id
     LEFT JOIN teacher_instrument_highest_grade_teachable on teacher.teacher_id=teacher_instrument_highest_grade_teachable.teacher_id
@@ -90,39 +97,55 @@ const getTeachersSearch = async (req, res) => {
     LEFT JOIN instrument on teacher_instrument_highest_grade_teachable.instrument_id=instrument.instrument_id
   `
 
-  let sqlQuery = ''
-  let sqlParams = []
+  // build extra params required for WHERE clauses on count query
+  let sqlParamsForCount = []
 
-  if (userLatitude && userLongitude) {
-    sqlQuery = searchTeachersBaseStartSql + searchTeachersMiddleSql + searchTeachersBaseEndSql
-    sqlParams.push(userLatitude, userLongitude, userLatitude)
-  } else {
-    sqlQuery = searchTeachersBaseStartSql + searchTeachersBaseEndSql
+  // check whether user has provided an instrument id
+  if (instrumentId) {
+    searchTeachersSql += 'WHERE instrument.instrument_id = ?';
+    sqlParams.push(instrumentId);
+    sqlParamsForCount.push(instrumentId);
   }
 
-  if (instrumentId && gradeRankId) {
-    sqlQuery += 'WHERE instrument.instrument_id = ? AND rank >= ?'
-    sqlParams.push(instrumentId, gradeRankId)
-  } else if (instrumentId) {
-    sqlQuery += 'WHERE instrument.instrument_id = ?'
-    sqlParams.push(instrumentId)
-  } else if (gradeRankId) {
-    sqlQuery += 'WHERE rank >= ?'
-    sqlParams.push(gradeRankId)
+  // check whether user has provided a grade id
+  if (gradeRankId) {
+    if (instrumentId) {
+      searchTeachersSql += ' AND rank >= ?';
+    } else {
+      searchTeachersSql += 'WHERE rank >= ?';
+    }
+    sqlParams.push(gradeRankId);
+    sqlParamsForCount.push(gradeRankId);
   }
 
-  // console.log(sqlQuery)
-  // console.log(sqlParams)
+  // create count query by replacing SELECT query with a count
+  const countSql = `
+  SELECT COUNT(*) AS count FROM
+  ` + searchTeachersSql.split("FROM")[1]
 
-  connection.query(sqlQuery, sqlParams, (err, response) => {
+  // add limit for pagination on search teachers result
+  searchTeachersSql += `
+    LIMIT ?, ?;
+  `
+  sqlParams.push(pagestart, resultsPerPage)
+
+  // combine both queries, including the extra params needed for the WHERE clauses on the count query
+  searchTeachersSql += countSql
+  sqlParams.push(...sqlParamsForCount)
+
+
+  connection.query(searchTeachersSql, sqlParams, (err, response) => {
     if (err) return res.status(400).send(errorResponse(err, res.statusCode))
 
-    let json = {
-      num_results: response.length,
-      results: response
-    }
+    const numResults = response[1][0].count
+    const totalPages = Math.ceil(numResults / resultsPerPage)
 
-    // console.log(json)
+    let json = {
+      num_results: numResults,
+      page: frontEndPageNum,
+      total_pages: totalPages,
+      results: response[0]
+    }
 
     res.status(200).send(json)
   })
