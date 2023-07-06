@@ -1,12 +1,13 @@
 const connection = require('../db')
 const errorResponse = require('../apiError')
+const Date = require('../utils/Date')
 
 const getAllChats = async (req, res) => {
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  // await new Promise(resolve => setTimeout(resolve, 1000));
 
   const userId = req.information.user_id
 
-  console.log(userId)
+  // console.log(userId)
 
   const sql = `
   SELECT chat_id, created_timestamp_utc, teacher.teacher_id, first_name, last_name, profile_image_url 
@@ -19,11 +20,43 @@ const getAllChats = async (req, res) => {
   connection.query(sql, [userId], async (err, response) => {
     if (err) return res.status(400).send(errorResponse(err, res.statusCode))
 
-    const allChats = response
+    let allChats = response
 
-    res.status(200).send({ results: allChats })
+    appendExtraChatDetails(allChats, 0, res, userId)
+
+    // res.status(200).send({ results: allChats })
   })
 }
+
+const appendExtraChatDetails = (allChats, index, res, userId) => {
+
+  if (index > allChats.length - 1) return res.status(200).send({ results: allChats })
+
+  const sql = `
+  SELECT message, chat_id, created_timestamp
+	  FROM chat_message 
+    WHERE chat_id = ?
+    ORDER BY created_timestamp DESC
+    LIMIT 1;
+  SELECT COUNT(*) as unread
+    FROM chat_message 
+    WHERE sender_id != ? AND message_read=0;
+  `
+
+  connection.query(sql, [allChats[index].chat_id, userId], async (err, response) => {
+    if (err) return res.status(400).send(errorResponse(err, res.statusCode))
+
+    allChats[index].most_recent_message = response[0].length > 0 ? response[0][0].message : ""
+    allChats[index].unread_messages = response[1][0].unread
+
+    index++
+
+    appendExtraChatDetails(allChats, index, res, userId)
+  })
+
+
+}
+
 
 // const getMostRecentMessage = async (chatId) => {
 
@@ -43,8 +76,11 @@ const getAllChats = async (req, res) => {
 //   })
 // }
 
+
+
+
 const getChatById = async (req, res) => {
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  // await new Promise(resolve => setTimeout(resolve, 1000));
 
   const userID = req.information.user_id
   const teacherID = req.params.teacher_id
@@ -61,6 +97,9 @@ const getChatById = async (req, res) => {
     FROM chat_message 
     WHERE chat_id = @chat
     ORDER BY created_timestamp;
+  UPDATE chat_message
+    SET message_read = 1
+    WHERE message_read = 0;
   `
 
   connection.query(sql, [userID, teacherID], (err, response) => {
@@ -81,7 +120,25 @@ const getChatById = async (req, res) => {
 }
 
 
-const getUnreadCount = async (req, res) => {
+const newChat = async (req, res) => {
+  // await new Promise(resolve => setTimeout(resolve, 2000));
+
+  const userID = req.information.user_id
+  const teacherID = req.params.teacher_id
+
+  const sql = `
+  INSERT INTO chat (chat_id, teacher_id, user_id, created_timestamp_utc) 
+  VALUES (NULL, ?, ?, now()) 
+  `
+  connection.query(sql, [teacherID, userID], (err, response) => {
+    if (err) return res.status(400).send(errorResponse(err, res.statusCode))
+
+    getChatById(req, res)
+  })
+}
+
+
+const getUnreadCountTotal = async (req, res) => {
   // await new Promise(resolve => setTimeout(resolve, 1000));
 
   const userID = req.information.user_id
@@ -100,27 +157,28 @@ const getUnreadCount = async (req, res) => {
   })
 }
 
+const getUnreadCountChat = async (req, res) => {
+  // await new Promise(resolve => setTimeout(resolve, 1000));
 
-const newChat = async (req, res) => {
-  // await new Promise(resolve => setTimeout(resolve, 2000));
+  console.log("req received")
 
+  const chatId = req.params.chat_id
   const userID = req.information.user_id
-  const teacherID = req.params.teacher_id
 
-  // console.log(userID)
-  // console.log(teacherID)
-  // const dateTime = new Date().toISOString().slice(0, 19).replace('T', ' '); // get current datetime (UTC) and convert to mysql datetime format
-
-  const sql = `
-  INSERT INTO chat (chat_id, teacher_id, user_id, created_timestamp_utc) 
-  VALUES (NULL, ?, ?, now()) 
+  let sql = `
+  SELECT COUNT(*) as unread_messages
+    FROM chat_message 
+    WHERE chat_id = ? AND sender_id != ? AND message_read=0
   `
-  connection.query(sql, [teacherID, userID], (err, response) => {
+
+  connection.query(sql, [chatId, userID], (err, response) => {
     if (err) return res.status(400).send(errorResponse(err, res.statusCode))
 
-    getChatById(req, res)
+    res.status(200).send(response[0])
   })
 }
+
+
 
 const newMessage = async (req, res) => {
   // await new Promise(resolve => setTimeout(resolve, 2000));
@@ -146,4 +204,4 @@ const newMessage = async (req, res) => {
   })
 }
 
-module.exports = { getAllChats, getChatById, getUnreadCount, newChat, newMessage }
+module.exports = { getAllChats, getChatById, getUnreadCountTotal, getUnreadCountChat, newChat, newMessage }

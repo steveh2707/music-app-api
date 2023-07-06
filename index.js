@@ -1,20 +1,23 @@
 const express = require('express')
 const app = express()
 
-// all routes
+// import routes
 const userRouter = require('./routes/user')
 const teacherRouter = require('./routes/teacher')
 const configurationRouter = require('./routes/configuration')
-const chatController = require('./routes/chat')
+const chatRouter = require('./routes/chat')
+const bookingRouter = require('./routes/booking')
 
+// middleware
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json())
 
-
+// use routes
 app.use('/user', userRouter)
 app.use('/teacher', teacherRouter)
-app.use('/chat', chatController)
+app.use('/chat', chatRouter)
 app.use('/configuration', configurationRouter)
+app.use('/booking', bookingRouter)
 
 
 app.listen((process.env.port || 4000), () => {
