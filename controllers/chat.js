@@ -1,5 +1,5 @@
 const connection = require('../db')
-const errorResponse = require('../apiError')
+const errorResponse = require('../utils/apiError')
 const Date = require('../utils/Date')
 
 const getAllChats = async (req, res) => {

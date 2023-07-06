@@ -1,7 +1,7 @@
 const connection = require('../db')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
-const errorResponse = require('../apiError')
+const errorResponse = require('../utils/apiError')
 
 const SECRET_KEY = process.env.MAMP_PASSWORD
 

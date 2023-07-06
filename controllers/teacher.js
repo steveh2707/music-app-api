@@ -1,5 +1,5 @@
 const connection = require('../db')
-const errorResponse = require('../apiError')
+const errorResponse = require('../utils/apiError')
 
 const getTeacherById = async (req, res) => {
   // await new Promise(resolve => setTimeout(resolve, 1000));

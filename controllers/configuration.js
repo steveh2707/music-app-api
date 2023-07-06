@@ -1,12 +1,13 @@
 const connection = require('../db')
-const errorResponse = require('../apiError')
+const errorResponse = require('../utils/apiError')
 
 const getConfiguration = async (req, res) => {
   // await new Promise(resolve => setTimeout(resolve, 2000));
 
   const getConfigurationSql = `
   SELECT * FROM instrument;
-  SELECT * FROM grade;
+  SELECT * FROM grade
+  ORDER BY rank;
   `
 
   connection.query(getConfigurationSql, (err, response) => {
