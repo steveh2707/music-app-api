@@ -7,5 +7,6 @@ router
   .get('/availability/:teacher_id', auth.decode, bookingController.getTeacherAvailability) // get a teacher's availability
   .get('/user_bookings', auth.decode, bookingController.getUsersBookings)
   .post('/', auth.decode, bookingController.makeBooking)
+  .put('/cancel/:booking_id', auth.decode, bookingController.cancelBooking)
 
 module.exports = router;

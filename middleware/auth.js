@@ -1,11 +1,11 @@
 const jwt = require('jsonwebtoken')
-const errorResponse = require('../utils/apiError')
+const apiResponses = require('../utils/apiResponses')
 
 const SECRET_KEY = process.env.JWT_SECRET_KEY
 
 const decode = (req, res, next) => {
 
-  if (!req.headers['authorization']) return res.status(401).send(errorResponse("User not logged in", res.statusCode))
+  if (!req.headers['authorization']) return res.status(401).send(apiResponses.error("User not logged in", res.statusCode))
 
   try {
     const token = req.headers.authorization
@@ -15,7 +15,7 @@ const decode = (req, res, next) => {
 
   } catch (error) {
     console.log(error)
-    return res.status(401).send(errorResponse("Invalid auth token", res.statusCode))
+    return res.status(401).send(apiResponses.error("Invalid auth token", res.statusCode))
   }
 }
 

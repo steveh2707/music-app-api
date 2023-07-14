@@ -1,5 +1,5 @@
 const connection = require('../db')
-const errorResponse = require('../utils/apiError')
+const apiResponses = require('../utils/apiResponses')
 const Date = require('../utils/Date')
 
 const getAllChats = async (req, res) => {
@@ -32,7 +32,7 @@ const getAllChats = async (req, res) => {
   `
 
   connection.query(sql, [userId, userId], async (err, response) => {
-    if (err) return res.status(400).send(errorResponse(err, res.statusCode))
+    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
 
     res.status(200).send({ results: response })
   })
@@ -64,7 +64,7 @@ const getChatById = async (req, res) => {
   `
 
   connection.query(sql, [userID, teacherID, userID], (err, response) => {
-    if (err) return res.status(400).send(errorResponse(err, res.statusCode))
+    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
 
     if (response[0].length === 0) return newChat(req, res)
 
@@ -92,7 +92,7 @@ const newChat = async (req, res) => {
   VALUES (NULL, ?, ?, now()) 
   `
   connection.query(sql, [teacherID, userID], (err, response) => {
-    if (err) return res.status(400).send(errorResponse(err, res.statusCode))
+    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
 
     getChatById(req, res)
   })
@@ -113,7 +113,7 @@ const getUnreadCountTotal = async (req, res) => {
   `
 
   connection.query(sql, [userID], (err, response) => {
-    if (err) return res.status(400).send(errorResponse(err, res.statusCode))
+    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
 
     res.status(200).send(response[0])
   })
@@ -138,7 +138,7 @@ const newMessage = async (req, res) => {
   `
 
   connection.query(sql, [message, dateTime, userID, chatID], (err, response) => {
-    if (err) return res.status(400).send(errorResponse(err, res.statusCode))
+    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
 
     const message = response[1][0]
     res.status(200).send(message)

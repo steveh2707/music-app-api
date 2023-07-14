@@ -1,5 +1,5 @@
 const connection = require('../db')
-const errorResponse = require('../utils/apiError')
+const apiResponses = require('../utils/apiResponses')
 
 const getTeacherAvailability = (req, res) => {
   const teacherId = req.params.teacher_id
@@ -20,7 +20,7 @@ const getTeacherAvailability = (req, res) => {
   `
 
   connection.query(sql, [teacherId, dateStart, dateEnd, teacherId, dateStart, dateEnd], (err, response) => {
-    if (err) return res.status(400).send(errorResponse(err, res.statusCode))
+    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
 
     const availabilityInfo = {
       teacher_id: parseInt(teacherId),
@@ -60,7 +60,7 @@ const getTeacherAvailability = (req, res) => {
         })
       }
     })
-    console.log(availabilityInfo)
+    // console.log(availabilityInfo)
 
     res.status(200).send(availabilityInfo)
   })
@@ -85,20 +85,21 @@ const makeBooking = (req, res) => {
   `
 
   connection.query(sql, [date, startTime, endTime, priceFinal, studentId, teacherId, gradeId, instrumentId], (err, response) => {
-    if (err) return res.status(400).send(errorResponse(err, res.statusCode))
+    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
 
     console.log(response)
 
-    if (response.affectedRows > 0) return res.status(200).send({ working: true })
+    if (response.affectedRows > 0) return res.status(200).send(apiResponses.success("Booking completed", res.statusCode))
 
     res.status(400)
   })
 
 }
 
-const getUsersBookings = (req, res) => {
-  try {
+const getUsersBookings = async (req, res) => {
 
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  try {
     const studentId = req.information.user_id
 
     const sql = `
@@ -109,18 +110,42 @@ const getUsersBookings = (req, res) => {
       LEFT JOIN instrument on booking.instrument_id = instrument.instrument_id
       LEFT JOIN grade on booking.grade_id = grade.grade_id
       WHERE student_id = ?
+      ORDER BY date
   `
 
     connection.query(sql, [studentId], (err, response) => {
-      if (err) return res.status(400).send(errorResponse(err, res.statusCode))
+      if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
 
       res.status(200).send({ results: response })
     })
-  } catch (err) {
-    res.status(400).send(errorResponse(err, res.statusCode))
+  } catch (error) {
+    res.status(400).send(apiResponses.error(error, res.statusCode))
   }
 }
 
 
+const cancelBooking = (req, res) => {
+  try {
+    const bookingId = req.params.booking_id
+    const studentId = req.information.user_id
+    const cancelReason = req.body.cancel_reason
 
-module.exports = { getTeacherAvailability, makeBooking, getUsersBookings }
+    const sql = `
+    UPDATE booking 
+      SET cancelled = '1', cancel_reason = ? 
+      WHERE booking.booking_id = ? AND booking.student_id = ? 
+    `
+
+    connection.query(sql, [cancelReason, bookingId, studentId], (err, response) => {
+      if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
+
+      res.status(201).send(apiResponses.success("Booking cancelled", res.statusCode))
+    })
+
+  } catch (error) {
+    res.status(400).send(apiResponses.error(error, res.statusCode))
+  }
+}
+
+
+module.exports = { getTeacherAvailability, makeBooking, getUsersBookings, cancelBooking }

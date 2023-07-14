@@ -1,5 +1,5 @@
 const connection = require('../db')
-const errorResponse = require('../utils/apiError')
+const apiResponses = require('../utils/apiResponses')
 
 const getTeacherById = async (req, res) => {
   // await new Promise(resolve => setTimeout(resolve, 1000));
@@ -27,7 +27,7 @@ const getTeacherById = async (req, res) => {
   `
 
   connection.query(getTeacherSql, [teacherId], (err, response) => {
-    if (err) return res.status(400).send(errorResponse(err, res.statusCode))
+    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
 
     let teacherDetails = response[0][0]
     const instrumentsTaught = response[1]
@@ -135,7 +135,7 @@ const getTeachersSearch = async (req, res) => {
 
 
   connection.query(searchTeachersSql, sqlParams, (err, response) => {
-    if (err) return res.status(400).send(errorResponse(err, res.statusCode))
+    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
 
     const numResults = response[1][0].count
     const totalPages = Math.ceil(numResults / resultsPerPage)
