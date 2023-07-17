@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken')
 const apiResponses = require('../utils/apiResponses')
 const s3Utils = require('../utils/s3Utlis')
 
-const SECRET_KEY = process.env.MAMP_PASSWORD
+const SECRET_KEY = process.env.JWT_SECRET_KEY
 
 const newUser = async (req, res) => {
   const body = req.body
