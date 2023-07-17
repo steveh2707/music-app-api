@@ -103,12 +103,12 @@ const getUsersBookings = async (req, res) => {
     const studentId = req.information.user_id
 
     const sql = `
-    SELECT booking_id, date_created, date, start_time, end_time, price_final, cancelled, cancel_reason, student_id, instrument.instrument_id, instrument.name AS instrument_name, instrument.sf_symbol AS instrumend_sf_symbol, instrument.image_url AS instrument_image_url, grade.grade_id, grade.name AS grade_name, teacher.teacher_id,  first_name AS teacher_first_name, last_name AS teacher_last_name, profile_image_url AS teacher_profile_image_url
+    SELECT booking_id, date_created, date, start_time, end_time, price_final, cancelled, cancel_reason, student_id, instrument.instrument_id, instrument.name AS instrument_name, instrument.sf_symbol AS instrumend_sf_symbol, instrument.image_url AS instrument_image_url, grades.grade_id, grades.name AS grade_name, teacher.teacher_id,  first_name AS teacher_first_name, last_name AS teacher_last_name, profile_image_url AS teacher_profile_image_url
       FROM booking 
       LEFT JOIN teacher on booking.teacher_id = teacher.teacher_id
       LEFT JOIN user on teacher.user_id = user.user_id
       LEFT JOIN instrument on booking.instrument_id = instrument.instrument_id
-      LEFT JOIN grade on booking.grade_id = grade.grade_id
+      LEFT JOIN grades on booking.grade_id = grades.grade_id
       WHERE student_id = ?
       ORDER BY date
   `

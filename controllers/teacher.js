@@ -13,15 +13,15 @@ const getTeacherById = async (req, res) => {
     FROM user 
     LEFT JOIN teacher on user.user_id=teacher.user_id
     WHERE user.user_id=?;
-  SELECT teacher_instrument_highest_grade_teachable.teacher_instrument_highest_grade_teachable_id AS id, instrument.instrument_id, instrument.name AS instrument_name, sf_symbol, grade.grade_id, grade.name AS grade_name
+  SELECT teacher_instrument_highest_grade_teachable.teacher_instrument_highest_grade_teachable_id AS id, instrument.instrument_id, instrument.name AS instrument_name, sf_symbol, grades.grade_id, grades.name AS grade_name
     FROM teacher_instrument_highest_grade_teachable
     LEFT JOIN instrument on teacher_instrument_highest_grade_teachable.instrument_id=instrument.instrument_id
-    LEFT JOIN grade on teacher_instrument_highest_grade_teachable.grade_id=grade.grade_id
+    LEFT JOIN grades on teacher_instrument_highest_grade_teachable.grade_id=grades.grade_id
     WHERE teacher_instrument_highest_grade_teachable.teacher_id = @teacher;
-  SELECT review_id, num_stars, created_timestamp, details, user.user_id AS user_id, first_name, last_name, instrument.instrument_id, instrument.name AS instrument_name, sf_symbol,grade.grade_id, grade.name AS grade_name
+  SELECT review_id, num_stars, created_timestamp, details, user.user_id AS user_id, first_name, last_name, instrument.instrument_id, instrument.name AS instrument_name, sf_symbol,grades.grade_id, grades.name AS grade_name
     FROM review
     LEFT JOIN user on review.user_id=user.user_id
-    LEFT JOIN grade on review.grade_id=grade.grade_id
+    LEFT JOIN grades on review.grade_id=grades.grade_id
     LEFT JOIN instrument on review.instrument_id=instrument.instrument_id
     WHERE review.teacher_id=@teacher;
   `
@@ -73,7 +73,7 @@ const getTeachersSearch = async (req, res) => {
 
   // base sql query
   let searchTeachersSql = `
-  SELECT teacher.teacher_id, first_name, last_name, tagline, bio, location_latitude, location_longitude, average_review_score, profile_image_url, teacher_instrument_highest_grade_teachable_id AS id, instrument.instrument_id, instrument.name AS instrument_name, sf_symbol AS instrument_sf_symbol, grade.name AS grade_teachable, rank`
+  SELECT teacher.teacher_id, first_name, last_name, tagline, bio, location_latitude, location_longitude, average_review_score, profile_image_url, teacher_instrument_highest_grade_teachable_id AS id, instrument.instrument_id, instrument.name AS instrument_name, sf_symbol AS instrument_sf_symbol, grades.name AS grade_teachable, rank`
   let sqlParams = []
 
   // check whether user has provided latitude and longitude
@@ -93,7 +93,7 @@ const getTeachersSearch = async (req, res) => {
   FROM teacher
     LEFT JOIN user on teacher.user_id=user.user_id
     LEFT JOIN teacher_instrument_highest_grade_teachable on teacher.teacher_id=teacher_instrument_highest_grade_teachable.teacher_id
-    LEFT JOIN grade on teacher_instrument_highest_grade_teachable.grade_id= grade.grade_id
+    LEFT JOIN grades on teacher_instrument_highest_grade_teachable.grade_id= grades.grade_id
     LEFT JOIN instrument on teacher_instrument_highest_grade_teachable.instrument_id=instrument.instrument_id
   `
 
