@@ -98,7 +98,7 @@ const makeBooking = (req, res) => {
 
 const getUsersBookings = async (req, res) => {
 
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  // await new Promise(resolve => setTimeout(resolve, 2000));
   try {
     const studentId = req.information.user_id
 
