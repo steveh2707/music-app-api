@@ -10,11 +10,11 @@ const decode = (req, res, next) => {
   try {
     const token = req.headers.authorization
     const decoded = jwt.decode(token, SECRET_KEY)
+    console.log(decoded)
     req.information = decoded
     return next()
 
   } catch (error) {
-    console.log(error)
     return res.status(401).send(apiResponses.error("Invalid auth token", res.statusCode))
   }
 }

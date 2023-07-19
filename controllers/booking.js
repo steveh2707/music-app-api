@@ -87,7 +87,7 @@ const makeBooking = (req, res) => {
   connection.query(sql, [date, startTime, endTime, priceFinal, studentId, teacherId, gradeId, instrumentId], (err, response) => {
     if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
 
-    console.log(response)
+    // console.log(response)
 
     if (response.affectedRows > 0) return res.status(200).send(apiResponses.success("Booking completed", res.statusCode))
 
