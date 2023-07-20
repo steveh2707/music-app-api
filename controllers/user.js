@@ -17,8 +17,8 @@ const newUser = async (req, res) => {
   // console.log(body)
 
   let createNewUserSql = `
-  INSERT INTO user (user_id, first_name, last_name, email, password_hash, dob, registered_timestamp, last_login_timestamp, profile_image_url) 
-  VALUES (NULL, ?, ?, ?, ?, ?, now(), now(), NULL) 
+  INSERT INTO user (user_id, first_name, last_name, email, password_hash, dob, registered_timestamp, last_login_timestamp, s3_image_name) 
+  VALUES (NULL, ?, ?, ?, ?, ?, now(), now(), "") 
   `
 
   connection.query(createNewUserSql, [firstName, lastName, email, passwordHash, dob], async (err, response) => {
@@ -36,7 +36,7 @@ const login = async (req, res) => {
   const password = req.body.password
 
   const loginSql = `
-  SELECT user.user_id, first_name, last_name, email, password_hash, dob, registered_timestamp, profile_image_url, s3_image_name, @teacher := teacher_id AS teacher_id, tagline, bio, location_latitude, location_longitude, average_review_score
+  SELECT user.user_id, first_name, last_name, email, password_hash, dob, registered_timestamp, s3_image_name, @teacher := teacher_id AS teacher_id, tagline, bio, location_latitude, location_longitude, average_review_score
 	  FROM teacher
 	  RIGHT JOIN user on teacher.user_id = user.user_id
 	  WHERE email = ?;
@@ -58,16 +58,17 @@ const login = async (req, res) => {
     // if match does not exist between passwords
     if (!comparison) return res.status(401).send(apiResponses.error("Incorrect password", res.statusCode))
 
-
-
     // update last login time
     updateLastLoginTime(response[0][0].user_id)
 
     const { user_id, first_name, last_name, email, dob, registered_timestamp, s3_image_name, teacher_id, tagline, bio, location_latitude, location_longitude, average_review_score } = response[0][0]
-    let profile_image_url = response[0][0].profile_image_url
 
-    if (profile_image_url == "" && s3_image_name != "") {
+    let profile_image_url
+
+    try {
       profile_image_url = await s3Utils.getSignedUrlLink(s3_image_name)
+    } catch {
+      profile_image_url = ""
     }
 
     // create token of user details

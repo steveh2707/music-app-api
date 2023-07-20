@@ -5,6 +5,8 @@ require('dotenv').config()
 
 const newImage = async (req, res) => {
 
+  console.log(req.file)
+
   s3Utils.saveToS3(req.file)
 
   const userId = req.information.user_id
@@ -21,6 +23,7 @@ const newImage = async (req, res) => {
     if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
 
     if (response[1].affectedRows == 0) return res.status(400).send(apiResponses.error("Database not updated", res.statusCode))
+
     profile_image_url = await s3Utils.getSignedUrlLink(originalName)
 
     const oldImageName = response[0][0].s3_image_name

@@ -1,5 +1,6 @@
 const connection = require('../db')
 const apiResponses = require('../utils/apiResponses')
+const s3Utils = require('../utils/s3Utlis')
 
 const getTeacherById = async (req, res) => {
   // await new Promise(resolve => setTimeout(resolve, 1000));
@@ -9,7 +10,7 @@ const getTeacherById = async (req, res) => {
   const teacherId = req.params.teacher_id
 
   const getTeacherSql = `
-  SELECT user.user_id, @teacher := teacher_id AS teacher_id, first_name, last_name, tagline, bio, location_latitude, location_longitude, average_review_score, profile_image_url
+  SELECT user.user_id, @teacher := teacher_id AS teacher_id, first_name, last_name, tagline, bio, location_latitude, location_longitude, average_review_score, s3_image_name
     FROM user 
     LEFT JOIN teacher on user.user_id=teacher.user_id
     WHERE user.user_id=?;
@@ -26,12 +27,18 @@ const getTeacherById = async (req, res) => {
     WHERE review.teacher_id=@teacher;
   `
 
-  connection.query(getTeacherSql, [teacherId], (err, response) => {
+  connection.query(getTeacherSql, [teacherId], async (err, response) => {
     if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
 
     let teacherDetails = response[0][0]
     const instrumentsTaught = response[1]
     const reviews = response[2]
+
+    try {
+      teacherDetails.profile_image_url = await s3Utils.getSignedUrlLink(teacherDetails.s3_image_name)
+    } catch {
+      teacherDetails.profile_image_url = ""
+    }
 
     teacherDetails.instruments_taught = []
     instrumentsTaught.forEach(instrument => {
@@ -73,7 +80,7 @@ const getTeachersSearch = async (req, res) => {
 
   // base sql query
   let searchTeachersSql = `
-  SELECT teacher.teacher_id, first_name, last_name, tagline, bio, location_latitude, location_longitude, average_review_score, profile_image_url, teacher_instrument_highest_grade_teachable_id AS id, instrument.instrument_id, instrument.name AS instrument_name, sf_symbol AS instrument_sf_symbol, grades.name AS grade_teachable, rank`
+  SELECT teacher.teacher_id, first_name, last_name, tagline, bio, location_latitude, location_longitude, average_review_score, s3_image_name, teacher_instrument_highest_grade_teachable_id AS id, instrument.instrument_id, instrument.name AS instrument_name, sf_symbol AS instrument_sf_symbol, grades.name AS grade_teachable, rank`
   let sqlParams = []
 
   // check whether user has provided latitude and longitude
@@ -134,17 +141,27 @@ const getTeachersSearch = async (req, res) => {
   sqlParams.push(...sqlParamsForCount)
 
 
-  connection.query(searchTeachersSql, sqlParams, (err, response) => {
+  connection.query(searchTeachersSql, sqlParams, async (err, response) => {
     if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
 
     const numResults = response[1][0].count
     const totalPages = Math.ceil(numResults / resultsPerPage)
 
+    const teachers = response[0]
+
+    for (let teacher of teachers) {
+      try {
+        teacher.profile_image_url = await s3Utils.getSignedUrlLink(teacher.s3_image_name)
+      } catch {
+        teacher.profile_image_url = ""
+      }
+    }
+
     let json = {
       num_results: numResults,
       page: frontEndPageNum,
       total_pages: totalPages,
-      results: response[0]
+      results: teachers
     }
 
     res.status(200).send(json)
