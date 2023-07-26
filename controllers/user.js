@@ -29,20 +29,37 @@ const newUser = async (req, res) => {
   })
 }
 
+
 // login function
 const login = async (req, res) => {
 
   const email = req.body.email
   const password = req.body.password
 
+  // const loginSql = `
+  // SELECT user.user_id, first_name, last_name, email, password_hash, dob, registered_timestamp, s3_image_name, @teacher := teacher_id AS teacher_id, tagline, bio, location_latitude, location_longitude, average_review_score
+  //   FROM teacher
+  //   RIGHT JOIN user on teacher.user_id = user.user_id
+  //   WHERE email = ?;
+  // SELECT teacher_instrument_highest_grade_teachable.teacher_instrument_highest_grade_teachable_id AS id, instrument_id, grade_id
+  //   FROM teacher_instrument_highest_grade_teachable
+  //   WHERE teacher_id = @teacher;
+  // `
+
   const loginSql = `
-  SELECT user.user_id, first_name, last_name, email, password_hash, dob, registered_timestamp, s3_image_name, @teacher := teacher_id AS teacher_id, tagline, bio, location_latitude, location_longitude, average_review_score
-	  FROM teacher
-	  RIGHT JOIN user on teacher.user_id = user.user_id
-	  WHERE email = ?;
-  SELECT teacher_instrument_highest_grade_teachable.teacher_instrument_highest_grade_teachable_id AS id, instrument_id, grade_id
-    FROM teacher_instrument_highest_grade_teachable
-    WHERE teacher_id = @teacher;
+  SELECT U.user_id, U.first_name, U.last_name, U.email, U.password_hash, U.dob, U.registered_timestamp, U.s3_image_name, T.teacher_id, T.tagline, T.bio, T.location_latitude, T.location_longitude, T.average_review_score,
+  JSON_ARRAYAGG(
+    JSON_OBJECT(
+      'id', IT.teacher_instrument_highest_grade_teachable_id,
+      'instrument_id', IT.instrument_id,
+      'grade_id', IT.grade_id
+    )
+  ) AS instruments_teachable
+    FROM user U
+    LEFT JOIN teacher T ON T.user_id = U.user_id
+    LEFT JOIN teacher_instrument_highest_grade_teachable IT ON T.teacher_id = IT.teacher_id
+    WHERE email = ?
+    GROUP BY U.user_id, U.first_name, U.last_name, U.email, U.password_hash, U.dob, U.registered_timestamp, U.s3_image_name, T.teacher_id, T.tagline, T.bio, T.location_latitude, T.location_longitude, T.average_review_score;
   `
 
   connection.query(loginSql, [email], async (err, response) => {
@@ -53,15 +70,15 @@ const login = async (req, res) => {
     if (response.length == 0) return res.status(401).send(apiResponses.error("Email address does not exist", res.statusCode))
 
     // compare user provided password with password stored in database
-    const comparison = await bcrypt.compare(password, response[0][0].password_hash)
+    const comparison = await bcrypt.compare(password, response[0].password_hash)
 
     // if match does not exist between passwords
     if (!comparison) return res.status(401).send(apiResponses.error("Incorrect password", res.statusCode))
 
     // update last login time
-    updateLastLoginTime(response[0][0].user_id)
+    updateLastLoginTime(response[0].user_id)
 
-    const { user_id, first_name, last_name, email, dob, registered_timestamp, s3_image_name, teacher_id, tagline, bio, location_latitude, location_longitude, average_review_score } = response[0][0]
+    const { user_id, first_name, last_name, email, dob, registered_timestamp, s3_image_name, teacher_id, tagline, bio, location_latitude, location_longitude, average_review_score, instruments_teachable } = response[0]
 
     let profile_image_url
 
@@ -80,12 +97,7 @@ const login = async (req, res) => {
     }
 
     if (teacher_id) {
-      dataPacket.teacher_details = { teacher_id, tagline, bio, location_latitude, location_longitude, average_review_score, instruments_teachable: [] }
-
-      response[1].forEach(instrument => {
-        const { id, instrument_id, grade_id } = instrument
-        dataPacket.teacher_details.instruments_teachable.push({ id, instrument_id, grade_id })
-      })
+      dataPacket.teacher_details = { teacher_id, tagline, bio, location_latitude, location_longitude, average_review_score, instruments_teachable: JSON.parse(instruments_teachable) }
     }
 
     // send successful response and attach token
@@ -106,5 +118,36 @@ const updateLastLoginTime = (userId) => {
 }
 
 
+const updateUserDetails = (req, res) => {
+  const body = req.body
+  const firstName = body.first_name
+  const lastName = body.last_name
+  const email = body.email
+  const dob = body.dob_output
+  const userId = body.user_id
 
-module.exports = { newUser, login }
+  const sql = `
+  UPDATE user 
+    SET first_name = ?, last_name = ?, email = ?, dob = ? WHERE user.user_id = ?;
+  SELECT U.user_id, U.first_name, U.last_name, U.email, U.dob, U.registered_timestamp, U.s3_image_name
+    FROM user U
+    WHERE U.user_id = ?
+  `
+  connection.query(sql, [firstName, lastName, email, dob, userId, userId], async (err, response) => {
+    // if error from mysql
+    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
+
+    let newUserDetails = response[1][0]
+
+    try {
+      newUserDetails.profile_image_url = await s3Utils.getSignedUrlLink(newUserDetails.s3_image_name)
+    } catch {
+      newUserDetails.profile_image_url = ""
+    }
+
+    console.log(newUserDetails)
+    res.status(200).send(newUserDetails)
+  })
+}
+
+module.exports = { newUser, login, updateUserDetails }

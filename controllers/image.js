@@ -5,8 +5,6 @@ require('dotenv').config()
 
 const newImage = async (req, res) => {
 
-  console.log(req.file)
-
   s3Utils.saveToS3(req.file)
 
   const userId = req.information.user_id
