@@ -36,28 +36,18 @@ const login = async (req, res) => {
   const email = req.body.email
   const password = req.body.password
 
-  // const loginSql = `
-  // SELECT user.user_id, first_name, last_name, email, password_hash, dob, registered_timestamp, s3_image_name, @teacher := teacher_id AS teacher_id, tagline, bio, location_latitude, location_longitude, average_review_score
-  //   FROM teacher
-  //   RIGHT JOIN user on teacher.user_id = user.user_id
-  //   WHERE email = ?;
-  // SELECT teacher_instrument_highest_grade_teachable.teacher_instrument_highest_grade_teachable_id AS id, instrument_id, grade_id
-  //   FROM teacher_instrument_highest_grade_teachable
-  //   WHERE teacher_id = @teacher;
-  // `
-
   const loginSql = `
-  SELECT U.user_id, U.first_name, U.last_name, U.email, U.password_hash, U.dob, U.registered_timestamp, U.s3_image_name, T.teacher_id, T.tagline, T.bio, T.location_latitude, T.location_longitude, T.average_review_score,
+  SELECT U.user_id, U.first_name, U.last_name, U.email, U.password_hash, U.dob, U.registered_timestamp, U.s3_image_name, T.teacher_id, T.tagline, T.bio, T.location_title, T.location_latitude, T.location_longitude, T.average_review_score,
   JSON_ARRAYAGG(
     JSON_OBJECT(
-      'id', IT.teacher_instrument_highest_grade_teachable_id,
+      'id', IT.teacher_instrument_taught_id,
       'instrument_id', IT.instrument_id,
       'grade_id', IT.grade_id
     )
   ) AS instruments_teachable
     FROM user U
     LEFT JOIN teacher T ON T.user_id = U.user_id
-    LEFT JOIN teacher_instrument_highest_grade_teachable IT ON T.teacher_id = IT.teacher_id
+    LEFT JOIN teacher_instrument_taught IT ON T.teacher_id = IT.teacher_id
     WHERE email = ?
     GROUP BY U.user_id, U.first_name, U.last_name, U.email, U.password_hash, U.dob, U.registered_timestamp, U.s3_image_name, T.teacher_id, T.tagline, T.bio, T.location_latitude, T.location_longitude, T.average_review_score;
   `
@@ -78,7 +68,7 @@ const login = async (req, res) => {
     // update last login time
     updateLastLoginTime(response[0].user_id)
 
-    const { user_id, first_name, last_name, email, dob, registered_timestamp, s3_image_name, teacher_id, tagline, bio, location_latitude, location_longitude, average_review_score, instruments_teachable } = response[0]
+    const { user_id, first_name, last_name, email, dob, registered_timestamp, s3_image_name, teacher_id, tagline, bio, location_title, location_latitude, location_longitude, average_review_score, instruments_teachable } = response[0]
 
     let profile_image_url
 
@@ -97,7 +87,7 @@ const login = async (req, res) => {
     }
 
     if (teacher_id) {
-      dataPacket.teacher_details = { teacher_id, tagline, bio, location_latitude, location_longitude, average_review_score, instruments_teachable: JSON.parse(instruments_teachable) }
+      dataPacket.teacher_details = { teacher_id, tagline, bio, location_title, location_latitude, location_longitude, average_review_score, instruments_teachable: JSON.parse(instruments_teachable) }
     }
 
     // send successful response and attach token
@@ -150,4 +140,55 @@ const updateUserDetails = (req, res) => {
   })
 }
 
-module.exports = { newUser, login, updateUserDetails }
+const getUsersReviews = (req, res) => {
+  const userId = req.information.user_id
+  console.log(userId)
+
+  const frontEndPageNum = parseInt(req.query.page) || 1
+  const resultsPerPage = 5;
+  const mySQLPageNum = frontEndPageNum - 1;
+  const pagestart = mySQLPageNum * resultsPerPage;
+
+
+  const getReviewsSql = `
+  SELECT COUNT(*) AS total_count
+    FROM review
+    WHERE review.user_id = ?;
+  SELECT review_id, num_stars, created_timestamp, details, user.user_id AS user_id, first_name, last_name, s3_image_name, instrument.instrument_id, instrument.name AS instrument_name, sf_symbol,grade.grade_id, grade.name AS grade_name
+    FROM review
+    LEFT JOIN user on review.teacher_id=user.user_id
+    LEFT JOIN grade on review.grade_id=grade.grade_id
+    LEFT JOIN instrument on review.instrument_id=instrument.instrument_id
+    WHERE review.user_id = ?
+    ORDER BY created_timestamp DESC
+    LIMIT ?,?;
+  `
+
+  connection.query(getReviewsSql, [userId, userId, pagestart, resultsPerPage], async (err, response) => {
+    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
+
+    const numResults = response[0].length > 0 ? response[0][0].total_count : 0
+    const totalPages = Math.ceil(numResults / resultsPerPage)
+
+    const reviews = response[1]
+
+    for (let review of reviews) {
+      try {
+        review.profile_image_url = await s3Utils.getSignedUrlLink(review.s3_image_name)
+      } catch {
+        review.profile_image_url = ""
+      }
+    }
+
+    let json = {
+      num_results: numResults,
+      page: frontEndPageNum,
+      total_pages: totalPages,
+      results: reviews
+    }
+
+    res.status(200).send(json)
+  })
+}
+
+module.exports = { newUser, login, updateUserDetails, getUsersReviews }

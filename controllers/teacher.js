@@ -5,26 +5,26 @@ const s3Utils = require('../utils/s3Utlis')
 const getTeacherById = async (req, res) => {
   // await new Promise(resolve => setTimeout(resolve, 1000));
 
-  // console.log("called")
-
   const teacherId = req.params.teacher_id
 
   const getTeacherSql = `
-  SELECT user.user_id, @teacher := teacher_id AS teacher_id, first_name, last_name, tagline, bio, location_latitude, location_longitude, average_review_score, s3_image_name
+  SELECT user.user_id, @teacher := teacher_id AS teacher_id, first_name, last_name, tagline, bio, location_title, location_latitude, location_longitude, average_review_score, s3_image_name
     FROM user 
     LEFT JOIN teacher on user.user_id=teacher.user_id
     WHERE user.user_id=?;
-  SELECT teacher_instrument_highest_grade_teachable.teacher_instrument_highest_grade_teachable_id AS id, instrument.instrument_id, instrument.name AS instrument_name, sf_symbol, grades.grade_id, grades.name AS grade_name
-    FROM teacher_instrument_highest_grade_teachable
-    LEFT JOIN instrument on teacher_instrument_highest_grade_teachable.instrument_id=instrument.instrument_id
-    LEFT JOIN grades on teacher_instrument_highest_grade_teachable.grade_id=grades.grade_id
-    WHERE teacher_instrument_highest_grade_teachable.teacher_id = @teacher;
-  SELECT review_id, num_stars, created_timestamp, details, user.user_id AS user_id, first_name, last_name, instrument.instrument_id, instrument.name AS instrument_name, sf_symbol,grades.grade_id, grades.name AS grade_name
+  SELECT teacher_instrument_taught.teacher_instrument_taught_id AS id, instrument.instrument_id, instrument.name AS instrument_name, sf_symbol, grade.grade_id, grade.name AS grade_name
+    FROM teacher_instrument_taught
+    LEFT JOIN instrument on teacher_instrument_taught.instrument_id=instrument.instrument_id
+    LEFT JOIN grade on teacher_instrument_taught.grade_id=grade.grade_id
+    WHERE teacher_instrument_taught.teacher_id = @teacher;
+  SELECT review_id, num_stars, created_timestamp, details, user.user_id AS user_id, first_name, last_name, s3_image_name, instrument.instrument_id, instrument.name AS instrument_name, sf_symbol,grade.grade_id, grade.name AS grade_name
     FROM review
     LEFT JOIN user on review.user_id=user.user_id
-    LEFT JOIN grades on review.grade_id=grades.grade_id
+    LEFT JOIN grade on review.grade_id=grade.grade_id
     LEFT JOIN instrument on review.instrument_id=instrument.instrument_id
-    WHERE review.teacher_id=@teacher;
+    WHERE review.teacher_id=@teacher
+    ORDER BY created_timestamp DESC
+    LIMIT 5;
   `
 
   connection.query(getTeacherSql, [teacherId], async (err, response) => {
@@ -45,20 +45,15 @@ const getTeacherById = async (req, res) => {
       teacherDetails.instruments_taught.push(instrument)
     })
 
-    let totalReviewScore = 0
-
     teacherDetails.reviews = []
-    reviews.forEach(review => {
+    for (let review of reviews) {
+      try {
+        review.profile_image_url = await s3Utils.getSignedUrlLink(review.s3_image_name)
+      } catch {
+        review.profile_image_url = ""
+      }
       teacherDetails.reviews.push(review)
-      totalReviewScore += review.num_stars
-    })
-
-    // if (reviews.length > 0) {
-    //   teacherDetails.average_review_score = totalReviewScore / reviews.length
-    // } else {
-    //   teacherDetails.average_review_score = 0
-    // }
-
+    }
 
     res.status(200).send(teacherDetails)
   })
@@ -75,17 +70,15 @@ const getTeachersSearch = async (req, res) => {
 
   const userLatitude = req.body.user_latitude
   const userLongitude = req.body.user_longitude
-  const instrumentId = req.body.instrument_id
-  const gradeRankId = req.body.grade_rank_id
+  const instrumentId = req.body.instrument_id || "11"
+  const gradeRankId = req.body.grade_rank_id || "0"
 
-  // base sql query
-  let searchTeachersSql = `
-  SELECT teacher.teacher_id, first_name, last_name, tagline, bio, location_latitude, location_longitude, average_review_score, s3_image_name, teacher_instrument_highest_grade_teachable_id AS id, instrument.instrument_id, instrument.name AS instrument_name, sf_symbol AS instrument_sf_symbol, grades.name AS grade_teachable, rank`
-  let sqlParams = []
+  let sqlParams = [instrumentId, gradeRankId]
 
-  // check whether user has provided latitude and longitude
+  // if location information is provided
+  let locationAddon = ""
   if (userLatitude && userLongitude) {
-    searchTeachersSql += `
+    locationAddon = `
     , 111.111 *
         DEGREES(ACOS(LEAST(1.0, COS(RADIANS(location_latitude))
           * COS(RADIANS(?))
@@ -95,59 +88,60 @@ const getTeachersSearch = async (req, res) => {
     sqlParams.push(userLatitude, userLongitude, userLatitude)
   }
 
-  // add middle section of sql query
-  searchTeachersSql += `
-  FROM teacher
-    LEFT JOIN user on teacher.user_id=user.user_id
-    LEFT JOIN teacher_instrument_highest_grade_teachable on teacher.teacher_id=teacher_instrument_highest_grade_teachable.teacher_id
-    LEFT JOIN grades on teacher_instrument_highest_grade_teachable.grade_id= grades.grade_id
-    LEFT JOIN instrument on teacher_instrument_highest_grade_teachable.instrument_id=instrument.instrument_id
-  `
-
-  // build extra params required for WHERE clauses on count query
-  let sqlParamsForCount = []
-
-  // check whether user has provided an instrument id
-  if (instrumentId) {
-    searchTeachersSql += 'WHERE instrument.instrument_id = ?';
-    sqlParams.push(instrumentId);
-    sqlParamsForCount.push(instrumentId);
-  }
-
-  // check whether user has provided a grade id
-  if (gradeRankId) {
-    if (instrumentId) {
-      searchTeachersSql += ' AND rank >= ?';
-    } else {
-      searchTeachersSql += 'WHERE rank >= ?';
-    }
-    sqlParams.push(gradeRankId);
-    sqlParamsForCount.push(gradeRankId);
-  }
-
-  // create count query by replacing SELECT query with a count
-  const countSql = `
-  SELECT COUNT(*) AS count FROM
-  ` + searchTeachersSql.split("FROM")[1]
-
-  // add limit for pagination on search teachers result
-  searchTeachersSql += `
-    LIMIT ?, ?;
-  `
   sqlParams.push(pagestart, resultsPerPage)
 
-  // combine both queries, including the extra params needed for the WHERE clauses on the count query
-  searchTeachersSql += countSql
-  sqlParams.push(...sqlParamsForCount)
-
+  let searchTeachersSql = `
+  SET @instrument := ?;
+  SET @rank := ?;
+  SELECT 
+    t.teacher_id, 
+    first_name, 
+    last_name, 
+    tagline, 
+    bio, 
+    location_title, 
+    location_latitude, 
+    location_longitude, 
+    average_review_score, 
+    s3_image_name, 
+    teacher_instrument_taught_id AS id, 
+    i.instrument_id, 
+    i.name AS instrument_name, 
+    sf_symbol AS instrument_sf_symbol, 
+    g.name AS grade_teachable, 
+    rank,
+    c.base_cost,
+    (SELECT COUNT(*) FROM teacher AS t2
+      LEFT JOIN teacher_instrument_taught AS ti2 ON t2.teacher_id = ti2.teacher_id
+      LEFT JOIN instrument AS i2 ON ti2.instrument_id = i2.instrument_id
+      WHERE i2.instrument_id = @instrument AND rank >= @rank) AS total_results
+    ${locationAddon}
+  FROM teacher AS t
+  LEFT JOIN user ON t.user_id = user.user_id
+  LEFT JOIN teacher_instrument_taught AS ti ON t.teacher_id = ti.teacher_id
+  LEFT JOIN grade AS g ON ti.grade_id = g.grade_id
+  LEFT JOIN instrument AS i ON ti.instrument_id = i.instrument_id
+  LEFT JOIN (
+    SELECT teacher_id, base_cost, max_grade_id, instrument_id 
+    FROM lesson_cost AS lc
+	  LEFT JOIN grade ON lc.max_grade_id = grade.grade_id
+    WHERE instrument_id = @instrument AND rank >= @rank
+    ORDER BY rank ASC 
+    LIMIT 1
+  ) AS c ON t.teacher_id = c.teacher_id
+  WHERE i.instrument_id = @instrument AND rank >= @rank
+  LIMIT ?,?;
+  `
 
   connection.query(searchTeachersSql, sqlParams, async (err, response) => {
     if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
 
-    const numResults = response[1][0].count
-    const totalPages = Math.ceil(numResults / resultsPerPage)
+    const numResults = response[2].length > 0 ? response[2][0].total_results : 0
+    console.log(response[2])
 
-    const teachers = response[0]
+    const totalPages = response[2].length > 0 ? Math.ceil(numResults / resultsPerPage) : 0
+
+    const teachers = response[2]
 
     for (let teacher of teachers) {
       try {
@@ -173,6 +167,7 @@ const updateTeacherDetails = (req, res) => {
   const teacherId = body.teacher_id
   const tagline = body.tagline
   const bio = body.bio
+  const locationTitle = body.location_title
   const latitude = body.location_latitude
   const longitude = body.location_longitude
   const instrumentsTeachable = body.instruments_teachable
@@ -181,21 +176,21 @@ const updateTeacherDetails = (req, res) => {
   // if (teacherId > 0) {
   let sql = `
   UPDATE teacher 
-    SET tagline = ?, bio = ?, location_latitude = ?, location_longitude = ? WHERE teacher.teacher_id =  @teacher_id := ?; 
+    SET tagline = ?, bio = ?, location_title = ?, location_latitude = ?, location_longitude = ? WHERE teacher.teacher_id =  @teacher_id := ?; 
   `
-  let params = [tagline, bio, latitude, longitude, teacherId]
+  let params = [tagline, bio, locationTitle, latitude, longitude, teacherId]
 
   // add new instruments or amend existing
   instrumentsTeachable.forEach(instrument => {
     if (instrument.id > 0) {
       sql += `
-      UPDATE teacher_instrument_highest_grade_teachable 
-        SET grade_id = ?, instrument_id = ? WHERE teacher_instrument_highest_grade_teachable.teacher_instrument_highest_grade_teachable_id = ?; 
+      UPDATE teacher_instrument_taught 
+        SET grade_id = ?, instrument_id = ? WHERE teacher_instrument_taught.teacher_instrument_taught_id = ?; 
       `
       params.push(instrument.grade_id, instrument.instrument_id, instrument.id)
     } else {
       sql += `
-      INSERT INTO teacher_instrument_highest_grade_teachable (teacher_instrument_highest_grade_teachable_id, teacher_id, grade_id, instrument_id) 
+      INSERT INTO teacher_instrument_taught (teacher_instrument_taught_id, teacher_id, grade_id, instrument_id) 
         VALUES (NULL, @teacher_id, ?, ?);
       `
       params.push(instrument.grade_id, instrument.instrument_id)
@@ -205,28 +200,26 @@ const updateTeacherDetails = (req, res) => {
   // remove deleted instruments 
   instrumentsRemovedIds.forEach(id => {
     sql += `
-    DELETE FROM teacher_instrument_highest_grade_teachable 
-    WHERE teacher_instrument_highest_grade_teachable.teacher_instrument_highest_grade_teachable_id = ?;
+    DELETE FROM teacher_instrument_taught 
+    WHERE teacher_instrument_taught.teacher_instrument_taught_id = ?;
     `
     params.push(id)
   })
 
   sql += `
-  SELECT T.teacher_id, T.tagline, T.bio, T.location_latitude, T.location_longitude, T.average_review_score,
+  SELECT T.teacher_id, T.tagline, T.bio, T.location_title, T.location_latitude, T.location_longitude, T.average_review_score,
   JSON_ARRAYAGG(
     JSON_OBJECT(
-      'id', IT.teacher_instrument_highest_grade_teachable_id,
+      'id', IT.teacher_instrument_taught_id,
       'instrument_id', IT.instrument_id,
       'grade_id', IT.grade_id
     )
   ) AS instruments_teachable
     FROM teacher T
-    LEFT JOIN teacher_instrument_highest_grade_teachable IT ON T.teacher_id = IT.teacher_id
+    LEFT JOIN teacher_instrument_taught IT ON T.teacher_id = IT.teacher_id
     WHERE T.teacher_id = @teacher_id
     GROUP BY T.teacher_id, T.tagline, T.bio, T.location_latitude, T.location_longitude, T.average_review_score;
   `
-  // params.push(teacherId)
-  // }
 
   connection.query(sql, params, async (err, response) => {
     // if error from mysql
@@ -235,8 +228,83 @@ const updateTeacherDetails = (req, res) => {
     let newTeacherDetails = response.slice(-1)[0][0]
     newTeacherDetails.instruments_teachable = JSON.parse(newTeacherDetails.instruments_teachable)
 
+    console.log(newTeacherDetails)
     res.status(200).send(newTeacherDetails)
   })
 }
 
-module.exports = { getTeacherById, getTeachersSearch, updateTeacherDetails }
+
+const newReview = (req, res) => {
+  const userID = req.information.user_id
+  const rating = req.body.rating
+  const details = req.body.details
+  const teacherId = req.body.teacher_id
+  const gradeId = req.body.grade_id
+  const instrumentId = req.body.instrument_id
+
+  console.log(req.body)
+
+  const newReviewSql = `
+  INSERT INTO review (review_id, num_stars, created_timestamp, details, user_id, teacher_id, grade_id, instrument_id) VALUES (NULL, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?) 
+  `
+
+  connection.query(newReviewSql, [rating, details, userID, teacherId, gradeId, instrumentId], async (err, response) => {
+    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
+
+    if (response.affectedRows == 0) return res.status(400).send(apiResponses.error("Database not updated", res.statusCode))
+
+    res.status(200).send(apiResponses.success("Review posted successfully", res.statusCode))
+  })
+}
+
+const getTeacherReviews = (req, res) => {
+  const teacherId = req.params.teacher_id
+
+  const frontEndPageNum = parseInt(req.query.page) || 1
+  const resultsPerPage = 5;
+  const mySQLPageNum = frontEndPageNum - 1;
+  const pagestart = mySQLPageNum * resultsPerPage;
+
+
+  const getReviewsSql = `
+  SELECT COUNT(*) AS total_count
+    FROM review
+    WHERE review.teacher_id = ?;
+  SELECT review_id, num_stars, created_timestamp, details, user.user_id AS user_id, first_name, last_name, s3_image_name, instrument.instrument_id, instrument.name AS instrument_name, sf_symbol,grade.grade_id, grade.name AS grade_name
+    FROM review
+    LEFT JOIN user on review.user_id=user.user_id
+    LEFT JOIN grade on review.grade_id=grade.grade_id
+    LEFT JOIN instrument on review.instrument_id=instrument.instrument_id
+    WHERE review.teacher_id = ?
+    ORDER BY created_timestamp DESC
+    LIMIT ?,?;
+  `
+
+  connection.query(getReviewsSql, [teacherId, teacherId, pagestart, resultsPerPage], async (err, response) => {
+    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
+
+    const numResults = response[0].length > 0 ? response[0][0].total_count : 0
+    const totalPages = Math.ceil(numResults / resultsPerPage)
+
+    const reviews = response[1]
+
+    for (let review of reviews) {
+      try {
+        review.profile_image_url = await s3Utils.getSignedUrlLink(review.s3_image_name)
+      } catch {
+        review.profile_image_url = ""
+      }
+    }
+
+    let json = {
+      num_results: numResults,
+      page: frontEndPageNum,
+      total_pages: totalPages,
+      results: reviews
+    }
+
+    res.status(200).send(json)
+  })
+}
+
+module.exports = { getTeacherById, getTeachersSearch, updateTeacherDetails, newReview, getTeacherReviews }

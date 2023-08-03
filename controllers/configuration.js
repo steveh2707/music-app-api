@@ -6,8 +6,8 @@ const getConfiguration = async (req, res) => {
 
   const getConfigurationSql = `
   SELECT * FROM instrument;
-  SELECT * FROM grades
-  ORDER BY grades.rank;
+  SELECT * FROM grade
+  ORDER BY grade.rank;
   `
 
   connection.query(getConfigurationSql, (err, response) => {
