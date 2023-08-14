@@ -59,9 +59,60 @@ const getTeacherById = async (req, res) => {
   })
 }
 
+const isTeacherFavourited = (req, res) => {
+  const userId = req.information.user_id
+  const teacherId = req.params.teacher_id
+
+  let sql = `
+  SELECT COUNT(*) as count FROM favourite WHERE teacher_id = ? AND user_id = ?
+  `
+
+  connection.query(sql, [teacherId, userId], async (err, response) => {
+    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
+
+    // console.log(response)
+    res.status(200).send(response[0])
+  })
+}
+
+const favouriteTeacher = (req, res) => {
+  const userId = req.information.user_id
+  const teacherId = req.params.teacher_id
+
+  let sql = `
+  INSERT INTO favourite (favourite_id, created_timestamp, user_id, teacher_id) VALUES (NULL, CURRENT_TIMESTAMP, ?, ?) 
+  `
+
+  connection.query(sql, [userId, teacherId], async (err, response) => {
+    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
+
+    if (response.affectedRows == 0) return res.status(400).send(apiResponses.error(err, res.statusCode))
+
+    res.status(200).send(apiResponses.success("Teacher favourited", res.statusCode))
+  })
+}
+
+const unfavouriteTeacher = (req, res) => {
+  const userId = req.information.user_id
+  const teacherId = req.params.teacher_id
+
+  let sql = `
+  DELETE FROM favourite WHERE favourite.user_id = ? AND favourite.teacher_id = ? 
+  `
+
+  connection.query(sql, [userId, teacherId], async (err, response) => {
+    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
+
+    if (response.affectedRows == 0) return res.status(400).send(apiResponses.error(err, res.statusCode))
+
+    res.status(200).send(apiResponses.success("Teacher favourited", res.statusCode))
+  })
+}
 
 const getTeachersSearch = async (req, res) => {
-  // await new Promise(resolve => setTimeout(resolve, 1000));
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
+  // console.log(req.body)
 
   const frontEndPageNum = parseInt(req.query.page) || 1
   const mySQLPageNum = frontEndPageNum - 1;
@@ -72,6 +123,7 @@ const getTeachersSearch = async (req, res) => {
   const userLongitude = req.body.user_longitude
   const instrumentId = req.body.instrument_id || "11"
   const gradeRankId = req.body.grade_rank_id || "0"
+  const sort = req.body.selected_sort
 
   let sqlParams = [instrumentId, gradeRankId]
 
@@ -104,7 +156,7 @@ const getTeachersSearch = async (req, res) => {
     location_longitude, 
     average_review_score, 
     s3_image_name, 
-    teacher_instrument_taught_id AS id, 
+    teacher_instrument_taught_id, 
     i.instrument_id, 
     i.name AS instrument_name, 
     sf_symbol AS instrument_sf_symbol, 
@@ -130,6 +182,7 @@ const getTeachersSearch = async (req, res) => {
     LIMIT 1
   ) AS c ON t.teacher_id = c.teacher_id
   WHERE i.instrument_id = @instrument AND rank >= @rank
+  ORDER BY ${sort}
   LIMIT ?,?;
   `
 
@@ -137,11 +190,72 @@ const getTeachersSearch = async (req, res) => {
     if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
 
     const numResults = response[2].length > 0 ? response[2][0].total_results : 0
-    console.log(response[2])
+    // console.log(response[2])
 
     const totalPages = response[2].length > 0 ? Math.ceil(numResults / resultsPerPage) : 0
 
     const teachers = response[2]
+
+    for (let teacher of teachers) {
+      try {
+        teacher.profile_image_url = await s3Utils.getSignedUrlLink(teacher.s3_image_name)
+      } catch {
+        teacher.profile_image_url = ""
+      }
+    }
+
+    let json = {
+      num_results: numResults,
+      page: frontEndPageNum,
+      total_pages: totalPages,
+      results: teachers
+    }
+
+    res.status(200).send(json)
+  })
+}
+
+const getFavouriteTeachers = (req, res) => {
+  const userId = req.information.user_id
+
+  // console.log(userId)
+  const frontEndPageNum = parseInt(req.query.page) || 1
+  const mySQLPageNum = frontEndPageNum - 1;
+  const resultsPerPage = 6;
+  const pagestart = mySQLPageNum * resultsPerPage;
+
+  const sql = `
+  SELECT 
+  f.teacher_id, 
+  first_name, 
+  last_name, 
+  tagline, 
+  bio, 
+  location_title, 
+  location_latitude, 
+  location_longitude, 
+  average_review_score, 
+  s3_image_name,
+  (SELECT COUNT(*) 
+   FROM favourite 
+   WHERE user_id = ?) AS total_results
+  FROM favourite AS f
+  LEFT JOIN teacher AS t ON f.teacher_id = t.teacher_id 
+  LEFT JOIN user ON t.user_id = user.user_id
+  WHERE f.user_id = ?
+  LIMIT ?, ?
+  `
+
+  connection.query(sql, [userId, userId, pagestart, resultsPerPage], async (err, response) => {
+    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
+
+    const numResults = response.length > 0 ? response[0].total_results : 0
+
+    const totalPages = numResults > 0 ? Math.ceil(numResults / resultsPerPage) : 0
+
+    const teachers = response
+
+    // console.log(teachers)
 
     for (let teacher of teachers) {
       try {
@@ -307,4 +421,4 @@ const getTeacherReviews = (req, res) => {
   })
 }
 
-module.exports = { getTeacherById, getTeachersSearch, updateTeacherDetails, newReview, getTeacherReviews }
+module.exports = { getTeacherById, getTeachersSearch, getFavouriteTeachers, updateTeacherDetails, newReview, getTeacherReviews, isTeacherFavourited, favouriteTeacher, unfavouriteTeacher }

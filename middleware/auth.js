@@ -10,7 +10,7 @@ const decode = (req, res, next) => {
   try {
     const token = req.headers.authorization
     const decoded = jwt.decode(token, SECRET_KEY)
-    console.log(decoded)
+    // console.log(decoded)
     req.information = decoded
     return next()
 

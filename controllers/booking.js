@@ -3,73 +3,64 @@ const apiResponses = require('../utils/apiResponses')
 const s3Utils = require('../utils/s3Utlis')
 
 
-const datesAreOnSameDay = (first, second) =>
-  first.getFullYear() === second.getFullYear() &&
-  first.getMonth() === second.getMonth() &&
-  first.getDate() === second.getDate();
+const getDateFromString = (dateString) => {
+  const dateStringArray = dateString.split(" ")
+  const newDateString = dateStringArray[0] + "T" + dateStringArray[1] + "+" + dateStringArray[dateStringArray.length - 1]
+  return new Date(newDateString)
+}
 
 
 const getTeacherAvailability = (req, res) => {
-  const teacherId = req.params.teacher_id
-  const dateString = req.query.date
+  try {
+    const teacherId = req.params.teacher_id
+    const startDate = getDateFromString(req.query.start_date)
+    const endDate = getDateFromString(req.query.end_date)
 
-  // convert dateString to Date and add use dates 1 day either side for search
-  const date = new Date(dateString)
-  const dateStart = date.addDays(-1).yyyymmdd()
-  const dateEnd = date.addDays(2).yyyymmdd()
-
-  const sql = `
-  SELECT start_time, end_time
-    FROM teacher_availability 
-    WHERE teacher_id = ? AND start_time BETWEEN ? AND ?;
-  SELECT start_time, end_time
-    FROM booking
-    WHERE teacher_id = ? AND start_time BETWEEN ? AND ?;
+    const sql = `
+      SET @teacher_id := ?;
+      SET @start_time := ?;
+      SET @end_time := ?;
+    
+      SELECT start_time, end_time
+        FROM teacher_availability 
+        WHERE teacher_id = @teacher_id AND (start_time BETWEEN @start_time AND @end_time OR end_time BETWEEN @start_time AND @end_time)
+        ORDER BY start_time;
+      SELECT start_time, end_time
+        FROM booking
+        WHERE teacher_id = @teacher_id AND (start_time BETWEEN @start_time AND @end_time OR end_time BETWEEN @start_time AND @end_time)
+        ORDER BY start_time;
   `
 
-  connection.query(sql, [teacherId, dateStart, dateEnd, teacherId, dateStart, dateEnd], (err, response) => {
-    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
+    connection.query(sql, [teacherId, startDate, endDate], (err, response) => {
+      if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
 
-    try {
       const availabilityInfo = {
         teacher_id: parseInt(teacherId),
-        availability: [
-          { date: date.addDays(-1), slots: [], bookings: [] },
-          { date: date, slots: [], bookings: [] },
-          { date: date.addDays(1), slots: [], bookings: [] }
-        ]
-      };
+        slots: [],
+        bookings: []
+      }
 
-      response[0].forEach(slot => {
-        // find index of existing day
-        const i = availabilityInfo.availability.findIndex(e => datesAreOnSameDay(e.date, slot.start_time));
-
-        // if day already exists in array, then add new slot to slot array
-        if (i > -1) availabilityInfo.availability[i].slots.push(slot)
+      response[3].forEach(slot => {
+        availabilityInfo.slots.push(slot)
       })
 
-      response[1].forEach(booking => {
-        // find index of existing day
-        const i = availabilityInfo.availability.findIndex(e => datesAreOnSameDay(e.date, booking.start_time));
-
-        // if day already exists in array, then add new slot to slot array
-        if (i > -1) availabilityInfo.availability[i].bookings.push(booking)
+      response[4].forEach(booking => {
+        availabilityInfo.bookings.push(booking)
       })
 
       // console.log(availabilityInfo)
       res.status(200).send(availabilityInfo)
-
-    } catch (error) {
-      res.status(400).send(apiResponses.error(error, res.statusCode))
-    }
-
-  })
+    })
+  } catch (error) {
+    res.status(400).send(apiResponses.error(error, res.statusCode))
+  }
 }
 
 
 const makeBooking = (req, res) => {
   // console.log(req.body)
   // const date = req.body.date
+
   const startTime = new Date(req.body.start_time)
   const endTime = new Date(req.body.end_time)
   const priceFinal = req.body.price_final
@@ -77,6 +68,8 @@ const makeBooking = (req, res) => {
   const teacherId = req.body.teacher_id
   const gradeId = req.body.grade_id
   const instrumentId = req.body.instrument_id
+
+  console.log(req.body.start_time)
 
   const sql = `
   INSERT INTO booking 
@@ -174,6 +167,9 @@ const cancelBooking = (req, res) => {
     res.status(400).send(apiResponses.error(error, res.statusCode))
   }
 }
+
+
+
 
 
 module.exports = { getTeacherAvailability, makeBooking, getBookings, cancelBooking }
