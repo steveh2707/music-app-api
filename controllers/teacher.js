@@ -9,9 +9,9 @@ const getTeacherById = async (req, res) => {
 
   const getTeacherSql = `
   SELECT user.user_id, @teacher := teacher_id AS teacher_id, first_name, last_name, tagline, bio, location_title, location_latitude, location_longitude, average_review_score, s3_image_name
-    FROM user 
-    LEFT JOIN teacher on user.user_id=teacher.user_id
-    WHERE user.user_id=?;
+    FROM teacher 
+    LEFT JOIN user on teacher.user_id=user.user_id
+    WHERE teacher.teacher_id = ?;
   SELECT teacher_instrument_taught.teacher_instrument_taught_id AS id, instrument.instrument_id, instrument.name AS instrument_name, sf_symbol, grade.grade_id, grade.name AS grade_name
     FROM teacher_instrument_taught
     LEFT JOIN instrument on teacher_instrument_taught.instrument_id=instrument.instrument_id
@@ -276,6 +276,61 @@ const getFavouriteTeachers = (req, res) => {
   })
 }
 
+
+const newTeacher = (req, res) => {
+  const body = req.body
+  const userId = req.information.user_id
+  const tagline = body.tagline
+  const bio = body.bio
+  const locationTitle = body.location_title
+  const latitude = body.location_latitude
+  const longitude = body.location_longitude
+  const instrumentsTeachable = body.instruments_teachable
+
+  console.log(body)
+
+  let sql = `
+  INSERT INTO teacher (teacher_id, tagline, bio, location_title, location_latitude, location_longitude, average_review_score, user_id) 
+  VALUES (NULL, ?, ?, ?, ?, ?, 0, ?);
+  `
+  let params = [tagline, bio, locationTitle, latitude, longitude, userId]
+
+  instrumentsTeachable.forEach(instrument => {
+    sql += `
+      INSERT INTO teacher_instrument_taught (teacher_instrument_taught_id, teacher_id, grade_id, instrument_id) 
+        VALUES (NULL, @teacher_id := LAST_INSERT_ID(), ?, ?);
+      `
+    params.push(instrument.grade_id, instrument.instrument_id)
+  })
+
+  sql += `
+  SELECT T.teacher_id, T.tagline, T.bio, T.location_title, T.location_latitude, T.location_longitude, T.average_review_score,
+  JSON_ARRAYAGG(
+    JSON_OBJECT(
+      'id', IT.teacher_instrument_taught_id,
+      'instrument_id', IT.instrument_id,
+      'grade_id', IT.grade_id
+    )
+  ) AS instruments_teachable
+    FROM teacher T
+    LEFT JOIN teacher_instrument_taught IT ON T.teacher_id = IT.teacher_id
+    WHERE T.teacher_id = @teacher_id
+    GROUP BY T.teacher_id, T.tagline, T.bio, T.location_latitude, T.location_longitude, T.average_review_score;
+  `
+
+  connection.query(sql, params, async (err, response) => {
+    // if error from mysql
+    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
+
+    let newTeacherDetails = response.slice(-1)[0][0]
+    newTeacherDetails.instruments_teachable = JSON.parse(newTeacherDetails.instruments_teachable)
+
+    console.log(newTeacherDetails)
+    res.status(200).send(newTeacherDetails)
+  })
+}
+
+
 const updateTeacherDetails = (req, res) => {
   const body = req.body
   const teacherId = body.teacher_id
@@ -421,4 +476,4 @@ const getTeacherReviews = (req, res) => {
   })
 }
 
-module.exports = { getTeacherById, getTeachersSearch, getFavouriteTeachers, updateTeacherDetails, newReview, getTeacherReviews, isTeacherFavourited, favouriteTeacher, unfavouriteTeacher }
+module.exports = { getTeacherById, getTeachersSearch, getFavouriteTeachers, newTeacher, updateTeacherDetails, newReview, getTeacherReviews, isTeacherFavourited, favouriteTeacher, unfavouriteTeacher }

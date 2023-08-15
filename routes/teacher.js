@@ -13,6 +13,7 @@ router
   .delete('/:teacher_id/favourite', auth.decode, teacherController.unfavouriteTeacher)
 
   .post('/search', teacherController.getTeachersSearch)
+  .post('/', auth.decode, teacherController.newTeacher)
   .put('/', auth.decode, teacherController.updateTeacherDetails)
   .post('/review', auth.decode, teacherController.newReview)
 
