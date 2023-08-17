@@ -1,4 +1,4 @@
-const connection = require('../db')
+const connection = require('../models/db')
 const apiResponses = require('../utils/apiResponses')
 const Date = require('../utils/Date')
 const s3Utils = require('../utils/s3Utlis')

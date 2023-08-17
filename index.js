@@ -1,5 +1,6 @@
 const express = require('express')
 const app = express()
+const cors = require('cors')
 
 // import routes
 const userRouter = require('./routes/user')
@@ -10,11 +11,9 @@ const bookingRouter = require('./routes/booking')
 const imageRouter = require('./routes/image')
 
 // middleware
-// app.use(express.urlencoded({ extended: true }));
-// app.use(express.json())
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.use(express.json({ limit: '50mb' }));
-
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json())
+app.use(cors())
 
 // use routes
 app.use('/user', userRouter)

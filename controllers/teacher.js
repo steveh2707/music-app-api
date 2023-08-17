@@ -1,4 +1,4 @@
-const connection = require('../db')
+const connection = require('../models/db')
 const apiResponses = require('../utils/apiResponses')
 const s3Utils = require('../utils/s3Utlis')
 
@@ -110,7 +110,7 @@ const unfavouriteTeacher = (req, res) => {
 }
 
 const getTeachersSearch = async (req, res) => {
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  // await new Promise(resolve => setTimeout(resolve, 1000));
 
   // console.log(req.body)
 
@@ -160,9 +160,9 @@ const getTeachersSearch = async (req, res) => {
     i.instrument_id, 
     i.name AS instrument_name, 
     sf_symbol AS instrument_sf_symbol, 
-    g.name AS grade_teachable, 
+    g.name AS grade_teachable,
+    lesson_cost, 
     rank,
-    c.base_cost,
     (SELECT COUNT(*) FROM teacher AS t2
       LEFT JOIN teacher_instrument_taught AS ti2 ON t2.teacher_id = ti2.teacher_id
       LEFT JOIN instrument AS i2 ON ti2.instrument_id = i2.instrument_id
@@ -173,14 +173,6 @@ const getTeachersSearch = async (req, res) => {
   LEFT JOIN teacher_instrument_taught AS ti ON t.teacher_id = ti.teacher_id
   LEFT JOIN grade AS g ON ti.grade_id = g.grade_id
   LEFT JOIN instrument AS i ON ti.instrument_id = i.instrument_id
-  LEFT JOIN (
-    SELECT teacher_id, base_cost, max_grade_id, instrument_id 
-    FROM lesson_cost AS lc
-	  LEFT JOIN grade ON lc.max_grade_id = grade.grade_id
-    WHERE instrument_id = @instrument AND rank >= @rank
-    ORDER BY rank ASC 
-    LIMIT 1
-  ) AS c ON t.teacher_id = c.teacher_id
   WHERE i.instrument_id = @instrument AND rank >= @rank
   ORDER BY ${sort}
   LIMIT ?,?;
@@ -297,10 +289,10 @@ const newTeacher = (req, res) => {
 
   instrumentsTeachable.forEach(instrument => {
     sql += `
-      INSERT INTO teacher_instrument_taught (teacher_instrument_taught_id, teacher_id, grade_id, instrument_id) 
+      INSERT INTO teacher_instrument_taught (teacher_instrument_taught_id, lesson_cost, teacher_id, grade_id, instrument_id) 
         VALUES (NULL, @teacher_id := LAST_INSERT_ID(), ?, ?);
       `
-    params.push(instrument.grade_id, instrument.instrument_id)
+    params.push(instrument.lesson_cost, instrument.grade_id, instrument.instrument_id)
   })
 
   sql += `
@@ -309,7 +301,8 @@ const newTeacher = (req, res) => {
     JSON_OBJECT(
       'id', IT.teacher_instrument_taught_id,
       'instrument_id', IT.instrument_id,
-      'grade_id', IT.grade_id
+      'grade_id', IT.grade_id,
+      'lesson_cost', IT.lesson_cost
     )
   ) AS instruments_teachable
     FROM teacher T
@@ -354,15 +347,15 @@ const updateTeacherDetails = (req, res) => {
     if (instrument.id > 0) {
       sql += `
       UPDATE teacher_instrument_taught 
-        SET grade_id = ?, instrument_id = ? WHERE teacher_instrument_taught.teacher_instrument_taught_id = ?; 
+        SET lesson_cost = ?, grade_id = ?, instrument_id = ? WHERE teacher_instrument_taught.teacher_instrument_taught_id = ?; 
       `
-      params.push(instrument.grade_id, instrument.instrument_id, instrument.id)
+      params.push(instrument.lesson_cost, instrument.grade_id, instrument.instrument_id, instrument.id)
     } else {
       sql += `
-      INSERT INTO teacher_instrument_taught (teacher_instrument_taught_id, teacher_id, grade_id, instrument_id) 
-        VALUES (NULL, @teacher_id, ?, ?);
+      INSERT INTO teacher_instrument_taught (teacher_instrument_taught_id, lesson_cost, teacher_id, grade_id, instrument_id) 
+        VALUES (NULL, ?, @teacher_id, ?, ?);
       `
-      params.push(instrument.grade_id, instrument.instrument_id)
+      params.push(instrument.lesson_cost, instrument.grade_id, instrument.instrument_id)
     }
   })
 
@@ -381,7 +374,8 @@ const updateTeacherDetails = (req, res) => {
     JSON_OBJECT(
       'id', IT.teacher_instrument_taught_id,
       'instrument_id', IT.instrument_id,
-      'grade_id', IT.grade_id
+      'grade_id', IT.grade_id,
+      'lesson_cost', IT.lesson_cost
     )
   ) AS instruments_teachable
     FROM teacher T
@@ -397,7 +391,7 @@ const updateTeacherDetails = (req, res) => {
     let newTeacherDetails = response.slice(-1)[0][0]
     newTeacherDetails.instruments_teachable = JSON.parse(newTeacherDetails.instruments_teachable)
 
-    console.log(newTeacherDetails)
+    // console.log(newTeacherDetails)
     res.status(200).send(newTeacherDetails)
   })
 }
@@ -411,7 +405,7 @@ const newReview = (req, res) => {
   const gradeId = req.body.grade_id
   const instrumentId = req.body.instrument_id
 
-  console.log(req.body)
+  // console.log(req.body)
 
   const newReviewSql = `
   INSERT INTO review (review_id, num_stars, created_timestamp, details, user_id, teacher_id, grade_id, instrument_id) VALUES (NULL, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?) 

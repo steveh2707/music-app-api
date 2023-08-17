@@ -1,4 +1,4 @@
-const connection = require('../db')
+const connection = require('../models/db')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
 const apiResponses = require('../utils/apiResponses')
@@ -42,7 +42,8 @@ const login = async (req, res) => {
     JSON_OBJECT(
       'id', IT.teacher_instrument_taught_id,
       'instrument_id', IT.instrument_id,
-      'grade_id', IT.grade_id
+      'grade_id', IT.grade_id,
+      'lesson_cost', IT.lesson_cost
     )
   ) AS instruments_teachable
     FROM user U

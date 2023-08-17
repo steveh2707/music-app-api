@@ -1,6 +1,6 @@
 const { PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
-const s3 = require('../s3')
+const s3 = require('../models/s3')
 
 const bucketName = process.env.BUCKET_NAME
 

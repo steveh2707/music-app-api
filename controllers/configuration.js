@@ -1,4 +1,4 @@
-const connection = require('../db')
+const connection = require('../models/db')
 const apiResponses = require('../utils/apiResponses')
 
 const getConfiguration = async (req, res) => {
