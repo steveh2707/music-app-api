@@ -1,3 +1,4 @@
+// import packages
 const express = require('express')
 const app = express()
 const cors = require('cors')
@@ -23,7 +24,8 @@ app.use('/configuration', configurationRouter)
 app.use('/booking', bookingRouter)
 app.use('/image', imageRouter)
 
-
+// set up API
 app.listen((process.env.port || 4000), () => {
   console.log("API listening on port: 4000")
 })
+
