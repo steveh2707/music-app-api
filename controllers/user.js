@@ -1,3 +1,4 @@
+// import dependencies
 const connection = require('../models/db')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
@@ -6,7 +7,9 @@ const s3Utils = require('../utils/s3Utlis')
 
 const SECRET_KEY = process.env.JWT_SECRET_KEY
 
+// function to create a new user within the database. If successful, redirect to login function to log in new user.
 const newUser = async (req, res) => {
+  // get data from request object
   const body = req.body
   const firstName = body.first_name
   const lastName = body.last_name
@@ -14,27 +17,38 @@ const newUser = async (req, res) => {
   const passwordHash = await bcrypt.hash(body.password, 10)
   const dob = body.dob
 
-  // console.log(body)
-
+  // sql query to add new user to database
   let createNewUserSql = `
   INSERT INTO user (user_id, first_name, last_name, email, password_hash, dob, registered_timestamp, last_login_timestamp, s3_image_name) 
   VALUES (NULL, ?, ?, ?, ?, ?, now(), now(), "") 
   `
 
+  // make connection to database and execute query with required parameters
   connection.query(createNewUserSql, [firstName, lastName, email, passwordHash, dob], async (err, response) => {
-    // if error from mysql
-    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
+    // if error from mysql return 400 error
+    if (err) {
+      if (err.errno === 1062) {
+        return res.status(400).send(apiResponses.error("Email already exists", res.statusCode))
+      }
+      return res.status(400).send(apiResponses.error(err, res.statusCode))
+    }
 
+    // if database is not updated, return error
+    if (response.affectedRows == 0) return res.status(400).send(apiResponses.error("Database not updated.", res.statusCode))
+
+    // if successful, redirect to log in function to create authorization token to provide to user
     login(req, res)
   })
 }
 
 
-// login function
+// function to login user and respond with their user/teacher details. Also updates user's last login time to current datetime.
 const login = async (req, res) => {
 
   const email = req.body.email
   const password = req.body.password
+
+  console.log(password)
 
   const loginSql = `
   SELECT U.user_id, U.first_name, U.last_name, U.email, U.password_hash, U.dob, U.registered_timestamp, U.s3_image_name, T.teacher_id, T.tagline, T.bio, T.location_title, T.location_latitude, T.location_longitude, T.average_review_score,
@@ -71,8 +85,8 @@ const login = async (req, res) => {
 
     const { user_id, first_name, last_name, email, dob, registered_timestamp, s3_image_name, teacher_id, tagline, bio, location_title, location_latitude, location_longitude, average_review_score, instruments_teachable } = response[0]
 
+    // get a signed url link to profile image stored in s3 bucket
     let profile_image_url
-
     try {
       profile_image_url = await s3Utils.getSignedUrlLink(s3_image_name)
     } catch {
@@ -82,16 +96,18 @@ const login = async (req, res) => {
     // create token of user details
     const token = jwt.sign(JSON.stringify({ user_id, teacher_id }), SECRET_KEY)
 
+    // create datapacket to be sent as response
     let dataPacket = {
       token: token,
       user_details: { user_id, first_name, last_name, email, dob, registered_timestamp, profile_image_url },
     }
 
+    // if user is also a teacher, attach their teacher details to response
     if (teacher_id) {
       dataPacket.teacher_details = { teacher_id, tagline, bio, location_title, location_latitude, location_longitude, average_review_score, instruments_teachable: JSON.parse(instruments_teachable) }
     }
 
-    // send successful response and attach token
+    // send successful response and attach datapacket
     res.status(200).send(dataPacket)
   })
 }
@@ -136,7 +152,6 @@ const updateUserDetails = (req, res) => {
       newUserDetails.profile_image_url = ""
     }
 
-    console.log(newUserDetails)
     res.status(200).send(newUserDetails)
   })
 }

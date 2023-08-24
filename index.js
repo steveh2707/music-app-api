@@ -10,6 +10,7 @@ const configurationRouter = require('./routes/configuration')
 const chatRouter = require('./routes/chat')
 const bookingRouter = require('./routes/booking')
 const imageRouter = require('./routes/image')
+const notFound = require('./controllers/notFound')
 
 // middleware
 app.use(express.urlencoded({ extended: true }));
@@ -24,8 +25,12 @@ app.use('/configuration', configurationRouter)
 app.use('/booking', bookingRouter)
 app.use('/image', imageRouter)
 
+// catch any other routes
+app.use(notFound)
+
 // set up API
 app.listen((process.env.port || 4000), () => {
   console.log("API listening on port: 4000")
 })
 
+module.exports = app

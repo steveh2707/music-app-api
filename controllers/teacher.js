@@ -12,11 +12,12 @@ const getTeacherById = async (req, res) => {
     FROM teacher 
     LEFT JOIN user on teacher.user_id=user.user_id
     WHERE teacher.teacher_id = ?;
-  SELECT teacher_instrument_taught.teacher_instrument_taught_id AS id, instrument.instrument_id, instrument.name AS instrument_name, sf_symbol, grade.grade_id, grade.name AS grade_name
+  SELECT teacher_instrument_taught.teacher_instrument_taught_id, instrument.instrument_id, instrument.name AS instrument_name, sf_symbol, grade.grade_id, grade.name AS grade_name, lesson_cost
     FROM teacher_instrument_taught
     LEFT JOIN instrument on teacher_instrument_taught.instrument_id=instrument.instrument_id
     LEFT JOIN grade on teacher_instrument_taught.grade_id=grade.grade_id
-    WHERE teacher_instrument_taught.teacher_id = @teacher;
+    WHERE teacher_instrument_taught.teacher_id = @teacher
+    ORDER BY instrument.name ASC, grade.rank ASC;
   SELECT review_id, num_stars, created_timestamp, details, user.user_id AS user_id, first_name, last_name, s3_image_name, instrument.instrument_id, instrument.name AS instrument_name, sf_symbol,grade.grade_id, grade.name AS grade_name
     FROM review
     LEFT JOIN user on review.user_id=user.user_id
@@ -109,6 +110,21 @@ const unfavouriteTeacher = (req, res) => {
   })
 }
 
+
+function findMinRankObject(dataArray) {
+  if (dataArray.length === 0) {
+    return null; // Handle empty array case
+  }
+
+  return dataArray.reduce((minRankObject, currentObject) => {
+    if (currentObject.rank < minRankObject.rank) {
+      return currentObject;
+    } else {
+      return minRankObject;
+    }
+  }, dataArray[0]);
+}
+
 const getTeachersSearch = async (req, res) => {
   // await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -156,17 +172,18 @@ const getTeachersSearch = async (req, res) => {
     location_longitude, 
     average_review_score, 
     s3_image_name, 
-    teacher_instrument_taught_id, 
-    i.instrument_id, 
-    i.name AS instrument_name, 
-    sf_symbol AS instrument_sf_symbol, 
-    g.name AS grade_teachable,
-    lesson_cost, 
-    rank,
-    (SELECT COUNT(*) FROM teacher AS t2
-      LEFT JOIN teacher_instrument_taught AS ti2 ON t2.teacher_id = ti2.teacher_id
-      LEFT JOIN instrument AS i2 ON ti2.instrument_id = i2.instrument_id
-      WHERE i2.instrument_id = @instrument AND rank >= @rank) AS total_results
+    JSON_ARRAYAGG(
+    	JSON_OBJECT(
+          'teacher_instrument_taught_id', ti.teacher_instrument_taught_id,
+      		'instrument_id', ti.instrument_id,
+          'instrument_name', i.name,
+          'sf_symbol', i.sf_symbol,
+      		'grade_id', ti.grade_id,
+          'grade_name', g.name,
+      		'lesson_cost', ti.lesson_cost, 
+          'rank', g.rank
+    	)
+    ) as instrument_teachable
     ${locationAddon}
   FROM teacher AS t
   LEFT JOIN user ON t.user_id = user.user_id
@@ -174,21 +191,35 @@ const getTeachersSearch = async (req, res) => {
   LEFT JOIN grade AS g ON ti.grade_id = g.grade_id
   LEFT JOIN instrument AS i ON ti.instrument_id = i.instrument_id
   WHERE i.instrument_id = @instrument AND rank >= @rank
+  GROUP BY t.teacher_id, first_name, last_name, tagline, bio, location_title, location_latitude, location_longitude, average_review_score, s3_image_name
   ORDER BY ${sort}
   LIMIT ?,?;
+
+  SELECT COUNT(DISTINCT(t.teacher_id)) as total_results FROM teacher AS t
+  RIGHT JOIN teacher_instrument_taught AS ti ON t.teacher_id = ti.teacher_id
+  LEFT JOIN grade AS g ON ti.grade_id = g.grade_id
+  LEFT JOIN instrument AS i ON ti.instrument_id = i.instrument_id
+  WHERE i.instrument_id = @instrument AND rank >= @rank
   `
 
   connection.query(searchTeachersSql, sqlParams, async (err, response) => {
     if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
 
-    const numResults = response[2].length > 0 ? response[2][0].total_results : 0
-    // console.log(response[2])
+    const numResults = response[3][0].total_results || 0
 
-    const totalPages = response[2].length > 0 ? Math.ceil(numResults / resultsPerPage) : 0
+    const totalPages = Math.ceil(numResults / resultsPerPage)
 
     const teachers = response[2]
 
     for (let teacher of teachers) {
+      teacher.instrument_teachable = JSON.parse(teacher.instrument_teachable)
+
+      if (teacher.instrument_teachable.length > 1) {
+        teacher.instrument_teachable = findMinRankObject(teacher.instrument_teachable)
+      } else {
+        teacher.instrument_teachable = teacher.instrument_teachable[0]
+      }
+
       try {
         teacher.profile_image_url = await s3Utils.getSignedUrlLink(teacher.s3_image_name)
       } catch {
