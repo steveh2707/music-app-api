@@ -4,7 +4,7 @@ const router = express.Router();
 const userController = require('../controllers/user')
 const auth = require('../middleware/auth')
 
-// define routes, call functions
+// define all endpoints following '/user' and call controller functions
 router
   .get('/review', auth.decode, userController.getUsersReviews) // get all users reviews
   .post('/login', userController.login) // check users details to allow them to log in

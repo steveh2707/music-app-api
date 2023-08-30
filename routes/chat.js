@@ -4,6 +4,7 @@ const router = express.Router();
 const chatController = require('../controllers/chat')
 const auth = require('../middleware/auth')
 
+// define all endpoints following '/chat' and call controller functions
 router
   .get('/', auth.decode, chatController.getAllChats) // get all user's chats
   .get('/conversation', auth.decode, chatController.getChatId) // get chat id from student_id and teacher_id, if chat doesn't exist, create a new one

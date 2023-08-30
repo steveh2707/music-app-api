@@ -1,15 +1,24 @@
+// import dependencies
 const connection = require('../models/db')
 const apiResponses = require('../utils/apiResponses')
 const s3Utils = require('../utils/s3Utlis')
 
-
+/**
+ * Convert a string into a date
+ * @param {String} dateString the string to be converted
+ * @returns 
+ */
 const getDateFromString = (dateString) => {
   const dateStringArray = dateString.split(" ")
   const newDateString = dateStringArray[0] + "T" + dateStringArray[1] + "+" + dateStringArray[dateStringArray.length - 1]
   return new Date(newDateString)
 }
 
-
+/**
+ * Query database to get a teacher's availability
+ * @param {Object} req the request object
+ * @param {Object} res the response object
+ */
 const getTeacherAvailability = (req, res) => {
   try {
     const teacherId = req.params.teacher_id
@@ -56,7 +65,11 @@ const getTeacherAvailability = (req, res) => {
   }
 }
 
-
+/**
+ * Query database to make a booking
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const makeBooking = (req, res) => {
   // console.log(req.body)
   // const date = req.body.date
@@ -89,12 +102,17 @@ const makeBooking = (req, res) => {
 
 }
 
+/**
+ * Query database to get user's bookings
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const getBookings = async (req, res) => {
 
   // await new Promise(resolve => setTimeout(resolve, 2000));
   try {
     const studentId = req.information.user_id
-    const teacherId = req.information.user_id
+    const teacherId = req.information.teacher_id
 
     let sql = `
     SELECT B.booking_id, B.date_created, B.start_time, B.end_time, B.price_final, B.cancelled, B.cancel_reason, B.student_id, B.teacher_id,
@@ -144,7 +162,11 @@ const getBookings = async (req, res) => {
 }
 
 
-
+/**
+ * Query database to cancel an existing booking
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const cancelBooking = (req, res) => {
   try {
     const bookingId = req.params.booking_id
@@ -167,8 +189,6 @@ const cancelBooking = (req, res) => {
     res.status(400).send(apiResponses.error(error, res.statusCode))
   }
 }
-
-
 
 
 

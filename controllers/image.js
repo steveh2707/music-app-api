@@ -1,8 +1,14 @@
+// import dependencies
 const connection = require('../models/db')
 const apiResponses = require('../utils/apiResponses')
 const s3Utils = require('../utils/s3Utlis')
 require('dotenv').config()
 
+/**
+ * Save new image to S3 image storage and query database to update image name to new image name.
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const newImage = async (req, res) => {
 
   s3Utils.saveToS3(req.file)

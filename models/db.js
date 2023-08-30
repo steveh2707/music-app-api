@@ -2,7 +2,9 @@
 const mysql = require('mysql')
 require('dotenv').config()
 
-// define parameters to allow pool connection to database
+/**
+ * define parameters to allow pool connection to database
+ */
 const pool = mysql.createPool({
   connectionLimit: 2,
   host: process.env.DB_HOST,
@@ -15,7 +17,9 @@ const pool = mysql.createPool({
   queueLimit: 10
 });
 
-// create connection to database
+/**
+ * Make connection to database
+ */
 pool.getConnection((err) => {
   if (err) return console.log(err.message);
   console.log("connected to db using createPool");

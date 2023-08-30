@@ -7,7 +7,11 @@ const s3Utils = require('../utils/s3Utlis')
 
 const SECRET_KEY = process.env.JWT_SECRET_KEY
 
-// function to create a new user within the database. If successful, redirect to login function to log in new user.
+/**
+ * function to create a new user within the database. If successful, redirect to login function to log in new user.
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const newUser = async (req, res) => {
   // get data from request object
   const body = req.body
@@ -42,7 +46,11 @@ const newUser = async (req, res) => {
 }
 
 
-// function to login user and respond with their user/teacher details. Also updates user's last login time to current datetime.
+/**
+ * function to login user and respond with their user/teacher details. Also updates user's last login time to current datetime.
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const login = async (req, res) => {
 
   const email = req.body.email
@@ -112,7 +120,10 @@ const login = async (req, res) => {
   })
 }
 
-
+/**
+ * Query database to update the user's last login time.
+ * @param {Int} userId the id of the user
+ */
 const updateLastLoginTime = (userId) => {
 
   let updateLastLoginSql = `
@@ -124,7 +135,11 @@ const updateLastLoginTime = (userId) => {
   })
 }
 
-
+/**
+ * Query database to update a user's details
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const updateUserDetails = (req, res) => {
   const body = req.body
   const firstName = body.first_name
@@ -156,6 +171,11 @@ const updateUserDetails = (req, res) => {
   })
 }
 
+/**
+ * Query database to get reviews that a user has created.
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const getUsersReviews = (req, res) => {
   const userId = req.information.user_id
   console.log(userId)

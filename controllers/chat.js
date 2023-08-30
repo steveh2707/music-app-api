@@ -1,8 +1,15 @@
+// import dependencies
 const connection = require('../models/db')
 const apiResponses = require('../utils/apiResponses')
 const Date = require('../utils/Date')
 const s3Utils = require('../utils/s3Utlis')
 
+
+/**
+ * Query database to get all of a user's chat conversations
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const getAllChats = async (req, res) => {
   // await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -55,6 +62,11 @@ const getAllChats = async (req, res) => {
   })
 }
 
+/**
+ * Query database to check if a chat exists between a student and teacher
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const getChatId = (req, res) => {
   const userID = req.information.user_id
   const teacherID = req.query.teacher_id
@@ -78,6 +90,12 @@ const getChatId = (req, res) => {
   })
 }
 
+
+/**
+ * Query database to create a new chat conversation
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const newChat = async (req, res) => {
   // await new Promise(resolve => setTimeout(resolve, 2000));
 
@@ -97,6 +115,11 @@ const newChat = async (req, res) => {
 }
 
 
+/**
+ * Query database to get a specific chat by its id
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const getChatById = async (req, res) => {
   // await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -153,13 +176,16 @@ const getChatById = async (req, res) => {
 
 
 
-
+/**
+ * Query database to get total number of unread messages for user
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const getUnreadCountTotal = async (req, res) => {
   // await new Promise(resolve => setTimeout(resolve, 1000));
-  console.log("req received")
 
   const userID = req.information.user_id
-  // const teacherID = req.params.teacher_id
+  const teacherID = req.information.teacher_id || 0
 
   let sql = `
   SELECT COUNT(*) as unread_messages
@@ -168,7 +194,7 @@ const getUnreadCountTotal = async (req, res) => {
     WHERE sender_id != ? AND message_read=0 AND (chat.teacher_id = ? OR chat.student_id = ?)
   `
 
-  connection.query(sql, [userID, userID, userID], (err, response) => {
+  connection.query(sql, [userID, teacherID, userID], (err, response) => {
     if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
 
     res.status(200).send(response[0])
@@ -176,7 +202,11 @@ const getUnreadCountTotal = async (req, res) => {
 }
 
 
-
+/**
+ * Query database to save a new chat message to database
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const newMessage = async (req, res) => {
   // await new Promise(resolve => setTimeout(resolve, 2000));
 

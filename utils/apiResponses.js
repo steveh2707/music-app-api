@@ -1,4 +1,9 @@
-
+/**
+ * Returns standard API error response
+ * @param {String} message 
+ * @param {Int} code 
+ * @returns {Object} 
+ */
 const error = (message, code) => {
   console.log(message)
 
@@ -9,8 +14,13 @@ const error = (message, code) => {
   }
 }
 
+/**
+ * Returns standard API success response
+ * @param {String} message 
+ * @param {Int} code 
+ * @returns {Object} 
+ */
 const success = (message, code) => {
-
   return {
     success: true,
     message,

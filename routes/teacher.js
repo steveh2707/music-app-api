@@ -1,10 +1,13 @@
+// import dependencies
 const express = require('express')
 const router = express.Router();
 const teacherController = require('../controllers/teacher')
 const auth = require('../middleware/auth')
 
+// define all endpoints following '/teacher' and call controller functions
 router
   .get('/favourite', auth.decode, teacherController.getFavouriteTeachers)
+  .get('/availability', auth.decode, teacherController.getTeacherAvailability)
   .get('/:teacher_id', teacherController.getTeacherById)
   .get('/:teacher_id/review', auth.decode, teacherController.getTeacherReviews)
 

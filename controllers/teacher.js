@@ -1,7 +1,13 @@
+// import dependencies
 const connection = require('../models/db')
 const apiResponses = require('../utils/apiResponses')
 const s3Utils = require('../utils/s3Utlis')
 
+/**
+ * Query database to get a teachers details by their id
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const getTeacherById = async (req, res) => {
   // await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -60,6 +66,11 @@ const getTeacherById = async (req, res) => {
   })
 }
 
+/**
+ * Query database to check whether user has favourited teacher
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const isTeacherFavourited = (req, res) => {
   const userId = req.information.user_id
   const teacherId = req.params.teacher_id
@@ -76,6 +87,11 @@ const isTeacherFavourited = (req, res) => {
   })
 }
 
+/**
+ * Query database to insert a record for a user favouriting a teacher.
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const favouriteTeacher = (req, res) => {
   const userId = req.information.user_id
   const teacherId = req.params.teacher_id
@@ -93,6 +109,11 @@ const favouriteTeacher = (req, res) => {
   })
 }
 
+/**
+ * Query database to remove a record of a user's favourite of a teacher.
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const unfavouriteTeacher = (req, res) => {
   const userId = req.information.user_id
   const teacherId = req.params.teacher_id
@@ -110,7 +131,11 @@ const unfavouriteTeacher = (req, res) => {
   })
 }
 
-
+/**
+ * Check through array of objects to return only the object that has the minimum rank.
+ * @param {[Object]} dataArray 
+ * @returns 
+ */
 function findMinRankObject(dataArray) {
   if (dataArray.length === 0) {
     return null; // Handle empty array case
@@ -125,10 +150,13 @@ function findMinRankObject(dataArray) {
   }, dataArray[0]);
 }
 
+/**
+ * Query database to search for teachers based on search criteria.
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const getTeachersSearch = async (req, res) => {
   // await new Promise(resolve => setTimeout(resolve, 1000));
-
-  // console.log(req.body)
 
   const frontEndPageNum = parseInt(req.query.page) || 1
   const mySQLPageNum = frontEndPageNum - 1;
@@ -141,9 +169,10 @@ const getTeachersSearch = async (req, res) => {
   const gradeRankId = req.body.grade_rank_id || "0"
   const sort = req.body.selected_sort
 
+  // build up array of parameters to be used for SQL query
   let sqlParams = [instrumentId, gradeRankId]
 
-  // if location information is provided
+  // if location information is provided create an addon to SQL query that can be injected later
   let locationAddon = ""
   if (userLatitude && userLongitude) {
     locationAddon = `
@@ -158,6 +187,7 @@ const getTeachersSearch = async (req, res) => {
 
   sqlParams.push(pagestart, resultsPerPage)
 
+  // create query for teacher search
   let searchTeachersSql = `
   SET @instrument := ?;
   SET @rank := ?;
@@ -202,6 +232,7 @@ const getTeachersSearch = async (req, res) => {
   WHERE i.instrument_id = @instrument AND rank >= @rank
   `
 
+  // query database using SQL query and parameters
   connection.query(searchTeachersSql, sqlParams, async (err, response) => {
     if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
 
@@ -211,6 +242,7 @@ const getTeachersSearch = async (req, res) => {
 
     const teachers = response[2]
 
+    // iterate through each teacher found
     for (let teacher of teachers) {
       teacher.instrument_teachable = JSON.parse(teacher.instrument_teachable)
 
@@ -238,6 +270,11 @@ const getTeachersSearch = async (req, res) => {
   })
 }
 
+/**
+ * Query database to return details for all favourited teachers.
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const getFavouriteTeachers = (req, res) => {
   const userId = req.information.user_id
 
@@ -299,7 +336,11 @@ const getFavouriteTeachers = (req, res) => {
   })
 }
 
-
+/**
+ * Query database to add a new teacher.
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const newTeacher = (req, res) => {
   const body = req.body
   const userId = req.information.user_id
@@ -309,8 +350,6 @@ const newTeacher = (req, res) => {
   const latitude = body.location_latitude
   const longitude = body.location_longitude
   const instrumentsTeachable = body.instruments_teachable
-
-  console.log(body)
 
   let sql = `
   INSERT INTO teacher (teacher_id, tagline, bio, location_title, location_latitude, location_longitude, average_review_score, user_id) 
@@ -354,7 +393,11 @@ const newTeacher = (req, res) => {
   })
 }
 
-
+/**
+ * Query database to update details of an existing teacher.
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const updateTeacherDetails = (req, res) => {
   const body = req.body
   const teacherId = body.teacher_id
@@ -427,7 +470,11 @@ const updateTeacherDetails = (req, res) => {
   })
 }
 
-
+/**
+ * Query database to add a new review of a teacher.
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const newReview = (req, res) => {
   const userID = req.information.user_id
   const rating = req.body.rating
@@ -435,8 +482,6 @@ const newReview = (req, res) => {
   const teacherId = req.body.teacher_id
   const gradeId = req.body.grade_id
   const instrumentId = req.body.instrument_id
-
-  // console.log(req.body)
 
   const newReviewSql = `
   INSERT INTO review (review_id, num_stars, created_timestamp, details, user_id, teacher_id, grade_id, instrument_id) VALUES (NULL, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?) 
@@ -451,6 +496,11 @@ const newReview = (req, res) => {
   })
 }
 
+/**
+ * Query database to get reviews about a teacher.
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const getTeacherReviews = (req, res) => {
   const teacherId = req.params.teacher_id
 
@@ -501,4 +551,25 @@ const getTeacherReviews = (req, res) => {
   })
 }
 
-module.exports = { getTeacherById, getTeachersSearch, getFavouriteTeachers, newTeacher, updateTeacherDetails, newReview, getTeacherReviews, isTeacherFavourited, favouriteTeacher, unfavouriteTeacher }
+/**
+ * Query database to get all of a teachers availability slots in the future.
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
+const getTeacherAvailability = (req, res) => {
+  const teacherId = req.information.teacher_id
+
+  const sql = `
+  SELECT teacher_availability_id, start_time, end_time 
+    FROM teacher_availability 
+    WHERE teacher_id = ? AND start_time > CURRENT_TIMESTAMP()
+  `
+
+  connection.query(sql, [teacherId], (err, response) => {
+    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
+
+    res.status(200).send({ results: response })
+  })
+}
+
+module.exports = { getTeacherById, getTeachersSearch, getFavouriteTeachers, newTeacher, updateTeacherDetails, newReview, getTeacherReviews, isTeacherFavourited, favouriteTeacher, unfavouriteTeacher, getTeacherAvailability }

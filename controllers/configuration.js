@@ -1,6 +1,12 @@
+// import dependencies
 const connection = require('../models/db')
 const apiResponses = require('../utils/apiResponses')
 
+/**
+ * Query database to get instruments and grades available on app
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
 const getConfiguration = async (req, res) => {
   // await new Promise(resolve => setTimeout(resolve, 2000));
 

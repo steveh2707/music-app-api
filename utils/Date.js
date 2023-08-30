@@ -1,3 +1,7 @@
+/**
+ * Function to return string in format 'yyyymmdd' from Date
+ * @returns {String} in format 'yyyymmdd'
+ */
 Date.prototype.yyyymmdd = function () {
   var mm = this.getMonth() + 1; // getMonth() is zero-based
   var dd = this.getDate();
@@ -8,6 +12,10 @@ Date.prototype.yyyymmdd = function () {
   ].join('/');
 };
 
+/**
+ * Function to return string in format 'yyyymmddhhmmss' from Date
+ * @returns {String} in format 'yyyymmddhhmmss'
+ */
 Date.prototype.yyyymmddhhmmss = function () {
   var mm = this.getMonth() + 1; // getMonth() is zero-based
   var dd = this.getDate();
@@ -24,6 +32,11 @@ Date.prototype.yyyymmddhhmmss = function () {
   ].join('/');
 };
 
+/**
+ * Function to add number of days to a date.
+ * @param {Int} days 
+ * @returns {Date} the new date
+ */
 Date.prototype.addDays = function (days) {
   var date = new Date(this.valueOf());
   date.setDate(date.getDate() + days);
