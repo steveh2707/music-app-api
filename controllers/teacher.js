@@ -175,14 +175,30 @@ const getTeachersSearch = async (req, res) => {
   // if location information is provided create an addon to SQL query that can be injected later
   let locationAddon = ""
   if (userLatitude && userLongitude) {
+    // locationAddon = `
+    // , 111.111 *
+    //     DEGREES(ACOS(LEAST(1.0, COS(RADIANS(location_latitude))
+    //       * COS(RADIANS(?))
+    //       * COS(RADIANS(location_longitude - ?))
+    //       + SIN(RADIANS(location_latitude))
+    //       * SIN(RADIANS(?))))) AS distance_in_km`
+    // sqlParams.push(userLatitude, userLongitude, userLatitude)
+
+    //   locationAddon = `
+    //   , ST_Distance_Sphere(
+    //     point(location_longitude, location_latitude),
+    //     point(?, ?)
+    // )  AS distance_in_km
+    //   `
+    //   sqlParams.push(userLongitude, userLatitude)
+
     locationAddon = `
-    , 111.111 *
-        DEGREES(ACOS(LEAST(1.0, COS(RADIANS(location_latitude))
-          * COS(RADIANS(?))
-          * COS(RADIANS(location_longitude - ?))
-          + SIN(RADIANS(location_latitude))
-          * SIN(RADIANS(?))))) AS distance_in_km`
-    sqlParams.push(userLatitude, userLongitude, userLatitude)
+  , ST_Distance_Sphere(
+    point(location_latitude, location_longitude),
+    point(?, ?)
+  )/1000  AS distance_in_km
+  `
+    sqlParams.push(userLatitude, userLongitude)
   }
 
   sqlParams.push(pagestart, resultsPerPage)
@@ -354,13 +370,14 @@ const newTeacher = (req, res) => {
   let sql = `
   INSERT INTO teacher (teacher_id, tagline, bio, location_title, location_latitude, location_longitude, average_review_score, user_id) 
   VALUES (NULL, ?, ?, ?, ?, ?, 0, ?);
+  SELECT @teacher_id := teacher_id FROM teacher WHERE teacher_id = LAST_INSERT_ID();
   `
   let params = [tagline, bio, locationTitle, latitude, longitude, userId]
 
   instrumentsTeachable.forEach(instrument => {
     sql += `
       INSERT INTO teacher_instrument_taught (teacher_instrument_taught_id, lesson_cost, teacher_id, grade_id, instrument_id) 
-        VALUES (NULL, @teacher_id := LAST_INSERT_ID(), ?, ?);
+        VALUES (NULL, ?, @teacher_id, ?, ?);
       `
     params.push(instrument.lesson_cost, instrument.grade_id, instrument.instrument_id)
   })
@@ -562,7 +579,9 @@ const getTeacherAvailability = (req, res) => {
   const sql = `
   SELECT teacher_availability_id, start_time, end_time 
     FROM teacher_availability 
-    WHERE teacher_id = ? AND start_time > CURRENT_TIMESTAMP()
+    WHERE teacher_id = ? 
+    AND start_time > CURRENT_TIMESTAMP() 
+    AND deleted = 0;
   `
 
   connection.query(sql, [teacherId], (err, response) => {
@@ -572,4 +591,82 @@ const getTeacherAvailability = (req, res) => {
   })
 }
 
-module.exports = { getTeacherById, getTeachersSearch, getFavouriteTeachers, newTeacher, updateTeacherDetails, newReview, getTeacherReviews, isTeacherFavourited, favouriteTeacher, unfavouriteTeacher, getTeacherAvailability }
+
+/**
+ * Query database to add a new availability slot for a teacher.
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
+const newAvailabilitySlot = (req, res) => {
+  const teacherId = req.information.teacher_id
+  const startTime = new Date(req.body.start_time).yyyymmddhhmmss()
+  const endTime = new Date(req.body.end_time).yyyymmddhhmmss()
+  // console.log(req.information)
+  // console.log(req.body)
+
+  const sql = `
+  INSERT INTO teacher_availability (teacher_availability_id, start_time, end_time, deleted, teacher_id) 
+  VALUES (NULL, ?, ?, '0', ?) 
+  `
+
+  connection.query(sql, [startTime, endTime, teacherId], (err, response) => {
+    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
+    if (response.affectedRows == 0) return res.status(400).send(apiResponses.error("Database not updated", res.statusCode))
+
+    getTeacherAvailability(req, res)
+  })
+}
+
+
+/**
+ * Query database to edit an existing availability slot.
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
+const editAvailabilitySlot = (req, res) => {
+  const teacherId = req.information.teacher_id
+  const teacherAvailabilityId = req.body.teacher_availability_id
+  const startTime = new Date(req.body.start_time).yyyymmddhhmmss()
+  const endTime = new Date(req.body.end_time).yyyymmddhhmmss()
+
+  // console.log(req.information)
+  // console.log(req.body)
+
+  const sql = `
+  UPDATE teacher_availability SET start_time = ?, end_time = ? 
+  WHERE teacher_availability.teacher_availability_id = ? AND teacher_id = ? 
+  `
+
+  connection.query(sql, [startTime, endTime, teacherAvailabilityId, teacherId], (err, response) => {
+    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
+    if (response.affectedRows == 0) return res.status(400).send(apiResponses.error("Database not updated", res.statusCode))
+
+    getTeacherAvailability(req, res)
+  })
+}
+
+
+/**
+ * Query database to delete an existing availability slot.
+ * @param {Object} req The request object
+ * @param {Object} res The response object
+ */
+const deleteAvailabilitySlot = (req, res) => {
+  const teacherId = req.information.teacher_id
+  const teacherAvailabilityId = req.params.teacher_availability_id
+
+  const sql = `
+  UPDATE teacher_availability SET deleted = 1 
+  WHERE teacher_availability.teacher_availability_id = ? AND teacher_id = ?;
+  `
+
+  connection.query(sql, [teacherAvailabilityId, teacherId], (err, response) => {
+    if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
+    if (response.affectedRows == 0) return res.status(400).send(apiResponses.error("Database not updated", res.statusCode))
+
+    getTeacherAvailability(req, res)
+  })
+}
+
+
+module.exports = { getTeacherById, getTeachersSearch, getFavouriteTeachers, newTeacher, updateTeacherDetails, newReview, getTeacherReviews, isTeacherFavourited, favouriteTeacher, unfavouriteTeacher, getTeacherAvailability, newAvailabilitySlot, editAvailabilitySlot, deleteAvailabilitySlot }
