@@ -30,7 +30,7 @@ app.use(notFound)
 
 // set up API
 app.listen((process.env.port || 4000), () => {
-  console.log("API listening on port: 4000")
+  console.log(`API listening on port: ${(process.env.port || 4000)}`)
 })
 
 module.exports = app
