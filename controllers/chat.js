@@ -43,8 +43,8 @@ const getAllChats = async (req, res) => {
 
     const chats = response
     for (let chat of chats) {
-      chat.student = JSON.parse(chat.student)
-      chat.teacher = JSON.parse(chat.teacher)
+      // chat.student = JSON.parse(chat.student)
+      // chat.teacher = JSON.parse(chat.teacher)
 
       try {
         chat.student.profile_image_url = await s3Utils.getSignedUrlLink(chat.student.s3_image_name)
@@ -150,8 +150,8 @@ const getChatById = async (req, res) => {
     let chatDetails = response[0][0]
     const chatMessages = response[1]
 
-    chatDetails.student = JSON.parse(chatDetails.student)
-    chatDetails.teacher = JSON.parse(chatDetails.teacher)
+    // chatDetails.student = JSON.parse(chatDetails.student)
+    // chatDetails.teacher = JSON.parse(chatDetails.teacher)
 
     try {
       chatDetails.student.profile_image_url = await s3Utils.getSignedUrlLink(chatDetails.student.s3_image_name)

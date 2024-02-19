@@ -137,10 +137,10 @@ const getBookings = async (req, res) => {
       let bookings = response
       for (let booking of bookings) {
         // console.log(booking.start_time)
-        booking.student = JSON.parse(booking.student)
-        booking.teacher = JSON.parse(booking.teacher)
-        booking.instrument = JSON.parse(booking.instrument)
-        booking.grade = JSON.parse(booking.grade)
+        // booking.student = JSON.parse(booking.student)
+        // booking.teacher = JSON.parse(booking.teacher)
+        // booking.instrument = JSON.parse(booking.instrument)
+        // booking.grade = JSON.parse(booking.grade)
 
         try {
           booking.student.profile_image_url = await s3Utils.getSignedUrlLink(booking.student.s3_image_name)
