@@ -241,7 +241,7 @@ const getTeachersSearch = async (req, res) => {
   LEFT JOIN teacher_instrument_taught AS ti ON t.teacher_id = ti.teacher_id
   LEFT JOIN grade AS g ON ti.grade_id = g.grade_id
   LEFT JOIN instrument AS i ON ti.instrument_id = i.instrument_id
-  WHERE i.instrument_id = @instrument AND rank >= @rank
+  WHERE i.instrument_id = @instrument AND g.rank >= @rank
   GROUP BY t.teacher_id, first_name, last_name, tagline, bio, location_title, location_latitude, location_longitude, average_review_score, s3_image_name
   ORDER BY ${sort}
   LIMIT ?,?;
