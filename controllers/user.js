@@ -112,8 +112,10 @@ const login = async (req, res) => {
 
     // if user is also a teacher, attach their teacher details to response
     if (teacher_id) {
-      dataPacket.teacher_details = { teacher_id, tagline, bio, location_title, location_latitude, location_longitude, average_review_score, instruments_teachable: JSON.parse(instruments_teachable) }
+      dataPacket.teacher_details = { teacher_id, tagline, bio, location_title, location_latitude, location_longitude, average_review_score, instruments_teachable: instruments_teachable }
     }
+
+    console.log(dataPacket)
 
     // send successful response and attach datapacket
     res.status(200).send(dataPacket)

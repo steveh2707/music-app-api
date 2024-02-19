@@ -41,6 +41,8 @@ const getTeacherById = async (req, res) => {
     const instrumentsTaught = response[1]
     const reviews = response[2]
 
+    if (typeof teacherDetails == 'undefined') return res.status(404).send()
+
     try {
       teacherDetails.profile_image_url = await s3Utils.getSignedUrlLink(teacherDetails.s3_image_name)
     } catch {
@@ -158,6 +160,9 @@ function findMinRankObject(dataArray) {
 const getTeachersSearch = async (req, res) => {
   // await new Promise(resolve => setTimeout(resolve, 1000));
 
+  console.log(req.body)
+  console.log(req.params)
+
   const frontEndPageNum = parseInt(req.query.page) || 1
   const mySQLPageNum = frontEndPageNum - 1;
   const resultsPerPage = 6;
@@ -260,7 +265,7 @@ const getTeachersSearch = async (req, res) => {
 
     // iterate through each teacher found
     for (let teacher of teachers) {
-      teacher.instrument_teachable = JSON.parse(teacher.instrument_teachable)
+      // teacher.instrument_teachable = JSON.parse(teacher.instrument_teachable)
 
       if (teacher.instrument_teachable.length > 1) {
         teacher.instrument_teachable = findMinRankObject(teacher.instrument_teachable)
@@ -403,7 +408,7 @@ const newTeacher = (req, res) => {
     if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
 
     let newTeacherDetails = response.slice(-1)[0][0]
-    newTeacherDetails.instruments_teachable = JSON.parse(newTeacherDetails.instruments_teachable)
+    // newTeacherDetails.instruments_teachable = JSON.parse(newTeacherDetails.instruments_teachable)
 
     console.log(newTeacherDetails)
     res.status(200).send(newTeacherDetails)
@@ -480,7 +485,7 @@ const updateTeacherDetails = (req, res) => {
     if (err) return res.status(400).send(apiResponses.error(err, res.statusCode))
 
     let newTeacherDetails = response.slice(-1)[0][0]
-    newTeacherDetails.instruments_teachable = JSON.parse(newTeacherDetails.instruments_teachable)
+    // newTeacherDetails.instruments_teachable = JSON.parse(newTeacherDetails.instruments_teachable)
 
     // console.log(newTeacherDetails)
     res.status(200).send(newTeacherDetails)
