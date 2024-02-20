@@ -251,7 +251,7 @@ const getTeachersSearch = async (req, res) => {
   RIGHT JOIN teacher_instrument_taught AS ti ON t.teacher_id = ti.teacher_id
   LEFT JOIN grade AS g ON ti.grade_id = g.grade_id
   LEFT JOIN instrument AS i ON ti.instrument_id = i.instrument_id
-  WHERE i.instrument_id = @instrument AND rank >= @rank
+  WHERE i.instrument_id = @instrument AND g.rank >= @rank
   `
 
   // query database using SQL query and parameters
