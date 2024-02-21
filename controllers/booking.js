@@ -82,8 +82,6 @@ const makeBooking = (req, res) => {
   const gradeId = req.body.grade_id
   const instrumentId = req.body.instrument_id
 
-  console.log(req.body.start_time)
-
   const sql = `
   INSERT INTO booking 
   (booking_id, start_time, end_time, price_final, cancelled, cancel_reason, student_id, teacher_id, grade_id, instrument_id) 
