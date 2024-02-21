@@ -56,8 +56,6 @@ const login = async (req, res) => {
   const email = req.body.email
   const password = req.body.password
 
-  console.log(password)
-
   const loginSql = `
   SELECT U.user_id, U.first_name, U.last_name, U.email, U.password_hash, U.dob, U.registered_timestamp, U.s3_image_name, T.teacher_id, T.tagline, T.bio, T.location_title, T.location_latitude, T.location_longitude, T.average_review_score,
   JSON_ARRAYAGG(
@@ -180,7 +178,6 @@ const updateUserDetails = (req, res) => {
  */
 const getUsersReviews = (req, res) => {
   const userId = req.information.user_id
-  console.log(userId)
 
   const frontEndPageNum = parseInt(req.query.page) || 1
   const resultsPerPage = 5;

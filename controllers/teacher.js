@@ -160,9 +160,6 @@ function findMinRankObject(dataArray) {
 const getTeachersSearch = async (req, res) => {
   // await new Promise(resolve => setTimeout(resolve, 1000));
 
-  console.log(req.body)
-  console.log(req.params)
-
   const frontEndPageNum = parseInt(req.query.page) || 1
   const mySQLPageNum = frontEndPageNum - 1;
   const resultsPerPage = 6;
@@ -411,7 +408,6 @@ const newTeacher = (req, res) => {
     let newTeacherDetails = response.slice(-1)[0][0]
     // newTeacherDetails.instruments_teachable = JSON.parse(newTeacherDetails.instruments_teachable)
 
-    console.log(newTeacherDetails)
     res.status(200).send(newTeacherDetails)
   })
 }

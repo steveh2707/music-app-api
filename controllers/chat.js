@@ -71,8 +71,8 @@ const getChatId = (req, res) => {
   const userID = req.information.user_id
   const teacherID = req.query.teacher_id
 
-  console.log(userID)
-  console.log(teacherID)
+  // console.log(userID)
+  // console.log(teacherID)
 
   let sql = `
   SELECT * 
