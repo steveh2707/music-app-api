@@ -7,7 +7,7 @@ const secretKey = process.env.MINIO_SECRET_KEY
 
 var minioClient = new Minio.Client({
   endPoint: host,
-  port: port,
+  port: 1 * port,
   useSSL: false,
   accessKey: accessKey,
   secretKey: secretKey,
